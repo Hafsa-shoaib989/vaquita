@@ -1,12 +1,13 @@
 package vaquita
 import chisel3._
 import chisel3.tester._
-import org.scalatest.FreeSpec
+// import org.scalatest.FreeSpec
+import org.scalatest.freespec.AnyFreeSpec
 import chisel3.experimental.BundleLiterals._
 import vaquita.configparameter.VaquitaConfig
 
 
-class VecTopTest extends FreeSpec with ChiselScalatestTester {
+class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
   "vec top test" in {
     implicit val config = new VaquitaConfig (256,32,32,8)
     test(new VaquitaTop) { dut =>
