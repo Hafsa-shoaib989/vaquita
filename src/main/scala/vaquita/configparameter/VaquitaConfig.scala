@@ -7,4 +7,5 @@ case class VaquitaConfig(
     reg_count: Int ,
     XLEN: Int      ,
     count_lanes: Int,//vlen >> 5,
+    F: Boolean     ,
 )

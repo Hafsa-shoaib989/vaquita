@@ -5,6 +5,8 @@ import chisel3.stage.ChiselStage
 import vaquita.pipeline.{DecodeStage,ExcuteStage,MemStage,WBStage}
 import vaquita.components.{VecMemFetch,ForwardingUnit,MemRequestIO,MemResponseIO}
 import vaquita.configparameter.VaquitaConfig
+// import vaquita.components.VecFpu.VecFPParameters
+
 
 class VaquitaTop extends Module {
     val io = IO(new Bundle{
@@ -16,7 +18,9 @@ class VaquitaTop extends Module {
         val vl_rs1_out = Output(UInt(32.W))
         
     })
-    implicit val vec_config = VaquitaConfig (256,32,32,8)
+    implicit val vec_config = VaquitaConfig (256,32,32,8,true)
+//     implicit val vec_FPconfig = VaquitaConfig (256,32,32,8,true)
+
     val de_stage = Module(new DecodeStage()(vec_config))
     val DE        = de_stage.io
     val excute_stage = Module(new ExcuteStage()(vec_config))
@@ -42,6 +46,9 @@ class VaquitaTop extends Module {
     DE.de_io.wb_reg_write_in  := WB.wb_reg_write_out
 
     // -----------------excute stage ---------------------------------
+    EX.ex_fpu_signal_in := DE.de_io.de_fpu_signal
+    EX.ex_fp_alu_op_in := DE.io.de_io.fp_alu_op_out
+    EX.ex_fp_conv_alu_op_in := DE.de_io.fp_conv_alu_op_out
 
     // ************forwording unit***********************
     DE.de_io.vl_rs1_in := RegNext(EX.vl_rs1_out.asUInt)
@@ -103,6 +110,7 @@ class VaquitaTop extends Module {
     EX.ex_rs1_data_in := io.rs1_data
     EX.ex_reg_write_in := DE.de_io.de_reg_write
 
+
     // -----------------memory stage ---------------------------------
     // val comparison_bit_f6 = MEM.mem_instr_out(31,26)==="b011000".U || MEM.mem_instr_out(31,26)==="b011001".U || MEM.mem_instr_out(31,26)==="b011010".U || MEM.mem_instr_out(31,26)==="b011011".U || MEM.mem_instr_out(31,26)==="b011100".U || MEM.mem_instr_out(31,26)==="b011101".U || MEM.mem_instr_out(31,26)==="b011110".U || MEM.mem_instr_out(31,26)==="b011111".U
     // val comparison_bit_f3 = MEM.mem_instr_out(14,12)==="b000".U || MEM.mem_instr_out(14,12)==="b011".U || MEM.mem_instr_out(14,12)==="b100".U
@@ -126,7 +134,10 @@ class VaquitaTop extends Module {
     WB.wb_vs3_data_in_store       <> MemFetch.vec_read_data_load
     WB.wb_vs3_data_in_store(0)(0) := MemFetch.vec_read_data_load(0)(0)
     WB.mem_to_reg                 := MEM.mem_read_en_out
+
+
     // -----------------write back stage ---------------------------------
+    WB.wb_fpu_signal_in := EX.ex_fpu_signal_out
     WB.wb_instr_in := MEM.mem_instr_out
     DE.de_vec_io.vsd_data_in <> WB.wb_vsd_data_out
     DE.de_io.wb_de_instr_in := WB.wb_instr_out

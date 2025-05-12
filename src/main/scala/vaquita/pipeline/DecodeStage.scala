@@ -3,31 +3,39 @@ package vaquita.pipeline
 import chisel3._
 import chisel3.util._
 import vaquita.components.{VecControlUnit, VecRegFile, VCSR}
+// import vaquita.components.VecFpu.{VecFPRegisters}
 import vaquita.configparameter.VaquitaConfig
 import vaquita.util.SewSelector
+// import vaquita.components.VecFpu.VecFPParameters
+
 
 /** IO Bundle for DecodeStage */
 class DecodeStageIO(implicit val config: VaquitaConfig) extends Bundle {
     val instr           = Input(UInt(32.W))
     val wb_de_instr_in  = Input(UInt(32.W))
     val rs1_data        = Input(SInt(32.W))
+    val wb_reg_write_in = Input(Bool())
+    val vl_rs1_in       = Input(UInt(32.W))
+
     val sew_out         = Output(UInt(5.W))
     val alu_op_out      = Output(UInt(6.W))
     val de_write_en     = Output(Bool())
     val de_read_en      = Output(Bool())
     val de_reg_write    = Output(Bool())
-    val wb_reg_write_in = Input(Bool())
-    val vl_rs1_in       = Input(UInt(32.W))
     val lmul_out        = Output(UInt(32.W))
+    val fp_alu_op_out   = Output(UInt(6.W))
+    val fp_conv_alu_op_out = Output(UInt(11.W))
+    val de_fpu_signal   = Output(Bool())
 }
+
 
 /** Vector Data IO Bundle */
 class DecodeStageVecIO(implicit val config: VaquitaConfig) extends Bundle {
+    val vsd_data_in  = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
     val vs1_data_out = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
     val vs2_data_out = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
     val vs3_data_out = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
     val vs0_data_out = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
-    val vsd_data_in  = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
 }
 
 class DecodeStage(implicit val config: VaquitaConfig) extends Module {
@@ -43,6 +51,8 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
 
     vec_cu_module.io.instr := io.de_io.instr
 
+    val fpu = vec_cu_module.io.is_float
+    
     /** Vector Register File Wiring */
     vec_reg_module.io.vs1_addr         := io.de_io.instr(19, 15)
     vec_reg_module.io.func3            := io.de_io.instr(14, 12)
@@ -68,11 +78,15 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     io.de_io.de_write_en  := vec_cu_module.io.mem_write
     io.de_io.de_read_en   := vec_cu_module.io.mem_read
     io.de_io.de_reg_write := vec_cu_module.io.reg_write
+    io.de_io.de_fpu_signal:= fpu
 
     /** ALU Operation */
-    io.de_io.alu_op_out := io.de_io.instr(31, 26)
-
-
+    when(config.F.B && fpu) {
+        io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))
+        io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)
+    }.otherwise {
+        io.de_io.alu_op_out := io.de_io.instr(31, 26)
+    }
 
   /**  selects vs1_data_out based on operand_type(immediate , rs1, vector) */
     val sew_selector = new SewSelector()
@@ -83,6 +97,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
             0.S,
             Array(
             (0.U) -> vec_reg_module.io.vs1_data(i)(j),
+            // (0.U) -> Mux(config.F && fpu, vec_fp_reg_module.io.vs1_data(i)(j), vec_reg_module.io.vs1_data(i)(j)),  // If FPU is enabled, use floating-point data, else use scalar data
             (1.U) -> io.de_io.rs1_data,
             (2.U) -> sew_selector.sew_selector_with_element(vcsr_module.io.sew, io.de_io.instr(19, 15).asSInt),
             (3.U) -> 0.S
@@ -96,4 +111,5 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     io.de_vec_io.vs3_data_out <> vec_reg_module.io.vs3_data
     io.de_vec_io.vs0_data_out <> vec_reg_module.io.vs0_data
     vec_reg_module.io.vd_data <> io.de_vec_io.vsd_data_in
+
 }
