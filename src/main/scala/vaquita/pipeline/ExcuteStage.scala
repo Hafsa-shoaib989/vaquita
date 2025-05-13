@@ -2,10 +2,9 @@ package vaquita.pipeline
 import chisel3._
 import chisel3.util._
 import vaquita.components.{VecALU,VsetModule}
-import vaquita.components.VecFpu.{VecFPALU}
+import vaquita.components.VecFpu.{VecFPALU, VecFPParameters}
 import vaquita.configparameter.VaquitaConfig
 import vaquita.util.SewSelector
-// import vaquita.components.VecFpu.VecFPParameters
 
 class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     val io = IO (new Bundle{
@@ -36,10 +35,10 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       val ex_vs1_data_out_vs3 = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
       val vl_rs1_out = Output(UInt(32.W))
       val ex_lmul_out = Output(UInt(32.W))
-      val ex_fpu_signal_out = Output(Bool())
+      // val ex_fpu_signal_out = Output(Bool())
   })
   
-    // implicit val FPConfig = new VecFPParameters()
+    implicit val FPConfig = new VecFPParameters()
     val vec_alu_module = Module(new VecALU)
     val vsetvli_module = Module(new VsetModule)
     val vec_fp_alu_module = Module(new VecFPALU)
@@ -50,12 +49,15 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
 
     //vector Floating 
     val fpu_sig = RegNext(io.ex_fpu_signal_in)
+    val ex_fp_alu_op_out = RegNext(io.ex_fp_alu_op_in)
+    val ex_fp_conv_alu_op_out = RegNext(io.ex_fp_conv_alu_op_in)
+
     when (config.F.B && fpu_sig) {
-      val ex_fp_alu_op_out = RegNext(io.ex_fp_alu_op_in)
-      val ex_fp_conv_alu_op_out = RegNext(io.ex_fp_conv_alu_op_in)
       vec_fp_alu_module.io.vl_in := vsetvli_module.io.vl
+      vec_alu_module.io.vl_in := 0.U
     }.otherwise {
       vec_alu_module.io.vl_in   := vsetvli_module.io.vl
+      vec_fp_alu_module.io.vl_in := 0.U
     }
 
     val sew_selector = new SewSelector()
@@ -64,21 +66,25 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
             // vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b100".U,sew_selector.sew_selector_with_element(next_sew,io.hazard_rs1.asSInt),io.ex_vs1_data_in(i)(j))
           when (config.F.B && fpu_sig) {
               vec_fp_alu_module.io.vs1_in(i)(j) := io.ex_vs1_data_in(i)(j)
+              vec_alu_module.io.vs1_in(i)(j) := 0.S
           }.otherwise {
-              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j))  
+              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j)) 
+              vec_fp_alu_module.io.vs1_in(i)(j) := 0.S
           }
     }}
- 
+
+    vec_fp_alu_module.io.vs2_in <> io.ex_vs2_data_in
+    vec_fp_alu_module.io.vs3_in <> io.ex_vs3_data_in
+    vec_fp_alu_module.io.vs0_in <> io.ex_vs0_data_in
+
+    vec_alu_module.io.vs2_in <> io.ex_vs2_data_in
+    vec_alu_module.io.vs3_in <> io.ex_vs3_data_in
+    vec_alu_module.io.vs0_in <> io.ex_vs0_data_in
+
     when (config.F.B && fpu_sig) {
-      vec_fp_alu_module.io.vs2_in <> io.ex_vs2_data_in
-      vec_fp_alu_module.io.vs3_in <> io.ex_vs3_data_in
-      vec_fp_alu_module.io.vs0_in <> io.ex_vs0_data_in
-      io.vsd_data_out             <> vec_fp_alu_module.io.vsd_out
-      vec_fp_alu_module.io.exceptions := 0.U
+      io.vsd_data_out          <> vec_fp_alu_module.io.vsd_out
+      // vec_fp_alu_module.io.exceptions := 0.U(5.W)
     }.otherwise {
-      vec_alu_module.io.vs2_in <> io.ex_vs2_data_in
-      vec_alu_module.io.vs3_in <> io.ex_vs3_data_in
-      vec_alu_module.io.vs0_in <> io.ex_vs0_data_in
       io.vsd_data_out          <> vec_alu_module.io.vsd_out
     }
 
@@ -95,14 +101,21 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     io.vl_rs1_out                := vsetvli_module.io.vl
 
     when (config.F.B && fpu_sig) {
-        vec_fp_alu_module.io.sew          := next_sew
-        vec_fp_alu_module.io.alu_ctrl     := ex_fp_alu_op_out
-        vec_fp_alu_module.io.alu_ctrl_con := ex_fp_conv_alu_op_out
-        vec_fp_alu_module.io.mask_arith   := io.ex_instr_out(25)
+      vec_fp_alu_module.io.sew          := next_sew
+      vec_fp_alu_module.io.alu_ctrl     := ex_fp_alu_op_out
+      vec_fp_alu_module.io.alu_ctrl_con := ex_fp_conv_alu_op_out
+      vec_fp_alu_module.io.mask_arith   := io.ex_instr_out(25)
+      vec_alu_module.io.sew        := 0.U
+      vec_alu_module.io.alu_opcode := 0.U
+      vec_alu_module.io.mask_arith := 0.U
     }.otherwise {
       vec_alu_module.io.sew        := next_sew
       vec_alu_module.io.alu_opcode := ex_alu_op_out
       vec_alu_module.io.mask_arith := io.ex_instr_out(25)
+      vec_fp_alu_module.io.sew          := 0.U
+      vec_fp_alu_module.io.alu_ctrl     := 0.U
+      vec_fp_alu_module.io.alu_ctrl_con := 0.U
+      vec_fp_alu_module.io.mask_arith   := 0.U
     }
 
     dontTouch(vec_alu_module.io)

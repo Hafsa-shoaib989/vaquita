@@ -18,13 +18,108 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val alu_ctrl_con = Input(UInt(11.W)) // for conversion 
         val mask_arith   = Input(Bool()) //making apply krni hai yahi 
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
-        val exceptions   = Output(UInt(5.W))
+        // val exceptions   = Output(UInt(5.W))
     })
 // first mask_arith ko dekhe ge , then vso_in, then vs3_in ko 
 // tailing ka kaam ...vs3 and vl ke sath hai 
 
 //convert into one array (string)...for making masking easy...
 val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
+
+val exception_reg = RegInit(0.U(5.W))
+// io.exceptions := exception_reg
+
+def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
+    val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
+    conv.io.signedIn := signed
+    conv.io.in := vs2_in.asUInt  
+    conv.io.roundingMode := 0.U
+    conv.io.detectTininess := consts.tininess_afterRounding
+    exception_reg := conv.io.exceptionFlags
+    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
+}
+
+def floatToInt(vs2_in: SInt, signed: Bool): SInt = {
+    val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
+
+    val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
+    conv.io.in := recFN
+    conv.io.roundingMode := 0.U
+    conv.io.signedOut := signed
+    exception_reg := conv.io.intExceptionFlags
+    conv.io.out.asSInt
+}
+
+def Conversion(vs2_in: SInt): SInt = {
+    MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
+        vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
+        vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
+        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B),
+        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B),
+        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B),
+        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B),
+))
+}
+
+
+// for sew 
+def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
+    val vsetvli_mask = 0.B
+    val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
+    val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
+    val vec_sew32_b = WireInit(0.S(32.W))
+    val vec_sew32_result = WireInit(0.S(config.XLEN.W))
+    // when(io.alu_ctrl==="b010000".U || io.alu_ctrl==="b010010".U){
+    //     vec_sew32_b := (Arithmatic(vs1, vs2,vs3,32,mask_vs0.asUInt)).asSInt
+    //     }.otherwise{
+    vec_sew32_b := Mux(mask_bit_active_element===1.B,Conversion(vs2.asSInt),Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+        // }
+    vec_sew32_result := vec_sew32_b
+    vec_sew32_result
+}
+
+
+// call main function 
+val vl= 4
+val tail = 0.B
+
+when(io.sew==="b010".U){//sew = 32    
+    // when(comp_bit === 0.B) {
+    var vl_counter = 1
+    for (i <- 0 until 8) {
+        for (j <- 0 until config.count_lanes) {
+        val idx = (i * config.count_lanes) + j
+        val mask = vs0_mask(idx)
+        
+        io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,
+            arith_32(io.vs1_in(i)(j),io.vs2_in(i)(j), io.vs3_in(i)(j), mask),
+            Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+        )     
+        vl_counter = vl_counter + 1
+        }
+    }
+}.otherwise{
+    for (i <- 0 until 8) {
+        for (j <- 0 until config.count_lanes) {
+            io.vsd_out(i)(j) := 0.S
+        }
+    }
+}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // def Conversion(vs2_in: SInt, sew:Int): SInt = {
 //     // int to float
@@ -54,86 +149,6 @@ val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
 
 
 
-
-def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
-    val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
-    conv.io.signedIn := signed
-    conv.io.in := vs2_in
-    conv.io.roundingMode := 0.U
-    conv.io.detectTininess := consts.tininess_afterRounding
-    io.exceptions := conv.io.exceptionFlags
-    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
-}
-
-def floatToInt(vs2_in: SInt, signed: Bool): SInt = {
-    val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
-
-    val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
-    conv.io.in := recFN
-    conv.io.roundingMode := 0.U
-    conv.io.signedOut := signed
-    io.exceptions := conv.io.intExceptionFlags
-    conv.io.out.asSInt
-}
-
-def Conversion(vs2_in: SInt): SInt = {
-    MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
-        vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B).asUInt,
-        vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B).asSInt,
-        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B).asUInt,
-        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B).asSInt,
-        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B).asUInt,
-        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B).asSInt,
-))
-}
-
-
-def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
-    val vsetvli_mask = 0.B
-    val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
-    val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
-    val vec_sew32_b = WireInit(0.S(32.W))
-    val vec_sew32_result = WireInit(0.S(config.XLEN.W))
-    // when(io.alu_ctrl==="b010000".U || io.alu_ctrl==="b010010".U){
-    //     vec_sew32_b := (Arithmatic(vs1, vs2,vs3,32,mask_vs0.asUInt)).asSInt
-    //     }.otherwise{
-    vec_sew32_b := Mux(mask_bit_active_element===1.B,Conversion(vs2.asSInt),Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
-        // }
-    vec_sew32_result := vec_sew32_b
-    vec_sew32_result
-}
-
-// def arith_16(vs2:SInt, vs3:SInt, mask_vs0:Bool):SInt={
-//     val vsetvli_mask = 0.B
-//     val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
-//     val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
-//     val vec_sew16_result = WireInit(0.S(16.W))
-//     // when(io.alu_opcode==="b010000".U || io.alu_opcode==="b010010".U){
-//     //     vec_sew16_result := (Arithmatic(vs1.asSInt, vs2.asSInt,vs3,16,mask_vs0.asUInt)).asSInt
-//     //     }.otherwise{
-//     vec_sew16_result := Mux(mask_bit_active_element===1.B,Conversion( vs2.asUInt,sew = 16),Mux(mask_bit_undisturb===1.B,vs3,Fill(16,1.U).asSInt)).asSInt
-//         // }
-//     vec_sew16_result
-// }
-
-// def arith_8(vs2:SInt,vs3:SInt, mask_vs0:Bool):SInt={
-//     dontTouch(mask_vs0)
-//     val vsetvli_mask = 0.B
-//     val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
-//     val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
-//     val vec_sew8_result = WireInit(0.S(8.W))
-//     dontTouch(vec_sew8_result)
-//     // when(io.alu_opcode==="b010000".U || io.alu_opcode==="b010010".U){
-//     //     vec_sew8_result := (Arithmatic(vs1.asSInt, vs2.asSInt,vs3,8,mask_vs0.asUInt)).asSInt
-//     //     }.otherwise{
-//     vec_sew8_result := Mux(mask_bit_active_element===1.B,Conversion(vs2.asUInt, sew=8),Mux(mask_bit_undisturb===1.B,vs3,Fill(16,1.U).asSInt)).asSInt
-//         // }
-//     vec_sew8_result 
-// }
-
-val vl= 4
-val tail = 0.B
-// call main function 
 // when(io.sew==="b000".U){
 // //   when(comp_bit===0.B){
 //     var vl_counter = 0
@@ -180,45 +195,6 @@ val tail = 0.B
 // }
 
 // }.else
-when(io.sew==="b010".U){//sew = 32    
-    // when(comp_bit === 0.B) {
-    var vl_counter = 1
-    for (i <- 0 until 8) {
-        for (j <- 0 until config.count_lanes) {
-        val idx = (i * config.count_lanes) + j
-        val mask = vs0_mask(idx)
-        
-        io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,
-            arith_32(io.vs1_in(i)(j),io.vs2_in(i)(j), io.vs3_in(i)(j), mask),
-            Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-        )     
-        vl_counter = vl_counter + 1
-        }
-    }
-}
-
-
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -137,7 +137,7 @@ class VaquitaTop extends Module {
 
 
     // -----------------write back stage ---------------------------------
-    WB.wb_fpu_signal_in := EX.ex_fpu_signal_out
+    // WB.wb_fpu_signal_in := EX.ex_fpu_signal_out
     WB.wb_instr_in := MEM.mem_instr_out
     DE.de_vec_io.vsd_data_in <> WB.wb_vsd_data_out
     DE.de_io.wb_de_instr_in := WB.wb_instr_out

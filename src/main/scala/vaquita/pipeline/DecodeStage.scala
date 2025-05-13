@@ -7,7 +7,7 @@ import vaquita.components.{VecControlUnit, VecRegFile, VCSR}
 import vaquita.configparameter.VaquitaConfig
 import vaquita.util.SewSelector
 // import vaquita.components.VecFpu.VecFPParameters
-
+import vaquita.components._
 
 /** IO Bundle for DecodeStage */
 class DecodeStageIO(implicit val config: VaquitaConfig) extends Bundle {
@@ -84,8 +84,11 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     when(config.F.B && fpu) {
         io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))
         io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)
+        io.de_io.alu_op_out :=  0.U
     }.otherwise {
         io.de_io.alu_op_out := io.de_io.instr(31, 26)
+        io.de_io.fp_alu_op_out := 0.U
+        io.de_io.fp_conv_alu_op_out := 0.U
     }
 
   /**  selects vs1_data_out based on operand_type(immediate , rs1, vector) */
