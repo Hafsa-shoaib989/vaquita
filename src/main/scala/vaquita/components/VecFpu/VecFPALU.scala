@@ -29,7 +29,7 @@ val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
 val exception_reg = RegInit(0.U(5.W))
 // io.exceptions := exception_reg
 
-//CONVERTION INSTRUCTIONS
+//CONVERSION INSTRUCTIONS
 def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
     val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
     conv.io.signedIn := signed
@@ -63,6 +63,26 @@ def Conversion(vs2_in: SInt): SInt = {
 }
 
 
+//ARITHMETIC INSTRUCTIONS
+def add_sub(vs1_in: SInt, vs2_in: SInt, subOp: Bool): SInt = {
+    val ad_su = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+    ad_su.io.subOp := subOp
+    ad_su.io.a := vs1_in.asUInt  
+    ad_su.io.b := vs2_in.asUInt 
+    ad_su.io.roundingMode := 0.U
+    ad_su.io.detectTininess := consts.tininess_afterRounding
+    exception_reg := ad_su.io.exceptionFlags
+    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, ad_su.io.out.asSInt).asSInt
+}
+
+def Arithmetic(vs1_in: SInt, vs2_in: SInt): SInt = {
+    MuxLookup(io.alu_ctrl, vs1_in, Seq(
+        vfadd     -> add_sub(vs1_in, vs2_in, subOp = false.B),
+        vfsub      -> add_sub(vs2_in, vs1_in, subOp = true.B),
+        vfrsub    -> add_sub(vs1_in, vs2_in, subOp = true.B)
+    ))
+}
+
 // for sew 
 def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     val vsetvli_mask = 0.B
@@ -73,7 +93,18 @@ def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     // when(io.alu_ctrl==="b010000".U || io.alu_ctrl==="b010010".U){
     //     vec_sew32_b := (Arithmatic(vs1, vs2,vs3,32,mask_vs0.asUInt)).asSInt
     //     }.otherwise{
-    vec_sew32_b := Mux(mask_bit_active_element===1.B,Conversion(vs2.asSInt),Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+
+    // Define known conversion operations
+    val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v ||
+                         io.alu_ctrl_con === vfcvt_f_x_v ||
+                         io.alu_ctrl_con === vfcvt_xu_f_v ||
+                         io.alu_ctrl_con === vfcvt_x_f_v ||
+                         io.alu_ctrl_con === vfcvt_rtz_xu_f_v ||
+                         io.alu_ctrl_con === vfcvt_rtz_x_f_v
+
+    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt))       // Compute result based on operation type
+
+    vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
         // }
     vec_sew32_result := vec_sew32_b
     vec_sew32_result
