@@ -29,6 +29,7 @@ val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
 val exception_reg = RegInit(0.U(5.W))
 // io.exceptions := exception_reg
 
+//CONVERTION INSTRUCTIONS
 def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
     val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
     conv.io.signedIn := signed
@@ -39,12 +40,12 @@ def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
 }
 
-def floatToInt(vs2_in: SInt, signed: Bool): SInt = {
+def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
     val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
 
     val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
     conv.io.in := recFN
-    conv.io.roundingMode := 0.U
+    conv.io.roundingMode := roundingMode  // Use the passed rounding mode
     conv.io.signedOut := signed
     exception_reg := conv.io.intExceptionFlags
     conv.io.out.asSInt
@@ -54,11 +55,11 @@ def Conversion(vs2_in: SInt): SInt = {
     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
         vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
         vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
-        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B),
-        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B),
-        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B),
-        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B),
-))
+        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
+        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
+        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U),  // Set rounding mode to 1 for this case
+        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    // Set rounding mode to 1 for this case
+    ))
 }
 
 
@@ -107,6 +108,12 @@ when(io.sew==="b010".U){//sew = 32
 }
 
 }
+
+
+
+
+
+
 
 
 

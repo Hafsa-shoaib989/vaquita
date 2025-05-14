@@ -11,6 +11,7 @@ object FPALUObj{
     val vfcvt_x_f_v        = Cat("b010010".U(6.W), "b00001".U(5.W))       //vfcvt.x.f.v
     val vfcvt_rtz_xu_f_v   = Cat("b010010".U(6.W), "b00110".U(5.W))       //vfcvt.rtz.xu.f.v
     val vfcvt_rtz_x_f_v    = Cat("b010010".U(6.W), "b00111".U(5.W))       //vfcvt.rtz.x.f.v
-
+    val vfadd              = 0.U(6.W)
+    val vfsub              = 2.U(6.W)
+    val vfrsub             = 39.U(6.W)
 }
-
