@@ -45,7 +45,7 @@ def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
 
     val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
     conv.io.in := recFN
-    conv.io.roundingMode := roundingMode  // Use the passed rounding mode
+    conv.io.roundingMode := roundingMode 
     conv.io.signedOut := signed
     exception_reg := conv.io.intExceptionFlags
     conv.io.out.asSInt
@@ -57,31 +57,72 @@ def Conversion(vs2_in: SInt): SInt = {
         vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
         vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
         vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
-        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U),  // Set rounding mode to 1 for this case
-        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    // Set rounding mode to 1 for this case
+        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U), 
+        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
     ))
 }
 
 
 //ARITHMETIC INSTRUCTIONS
-def add_sub(vs1_in: SInt, vs2_in: SInt, subOp: Bool): SInt = {
-    val ad_su = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-    ad_su.io.subOp := subOp
-    ad_su.io.a := vs1_in.asUInt  
-    ad_su.io.b := vs2_in.asUInt 
-    ad_su.io.roundingMode := 0.U
-    ad_su.io.detectTininess := consts.tininess_afterRounding
-    exception_reg := ad_su.io.exceptionFlags
-    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, ad_su.io.out.asSInt).asSInt
+def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
+    val result = Wire(SInt((FPConfig.expWidth + FPConfig.sigWidth).W))
+    result := 0.S // Default
+
+    opType match {
+        case `vfadd` | `vfsub` | `vfrsub` =>
+            val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            add.io.a := vs2_in.asUInt
+            add.io.b := vs1_in.asUInt
+            when (opType === vfsub || opType === vfrsub) {
+                add.io.subOp := true.B
+            } .otherwise {
+                add.io.subOp := false.B
+            } 
+            add.io.roundingMode := 0.U
+            add.io.detectTininess := consts.tininess_afterRounding
+            exception_reg := add.io.exceptionFlags
+            result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
+
+        case `vfmul` =>
+            val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            mul.io.a := vs2_in.asUInt
+            mul.io.b := vs1_in.asUInt
+            mul.io.roundingMode := 0.U
+            mul.io.detectTininess := consts.tininess_afterRounding
+            exception_reg := mul.io.exceptionFlags
+            result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, mul.io.out).asSInt
+
+        case `vfdiv` | `vfrdiv` =>
+            val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+            div.io.a := vs2_in.asUInt
+            div.io.b := vs1_in.asUInt
+            div.io.sqrtOp := false.B
+            div.io.inValid := true.B
+            val internalReady = WireDefault(false.B)
+            internalReady := div.io.inReady 
+            div.io.roundingMode := 0.U
+            div.io.detectTininess := consts.tininess_afterRounding
+            exception_reg := div.io.exceptionFlags
+            when(div.io.outValid_div || div.io.outValid_sqrt) {
+                result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, div.io.out).asSInt
+        }
+        case _ =>
+        result := 0.S
+    }
+    result
 }
 
-def Arithmetic(vs1_in: SInt, vs2_in: SInt): SInt = {
-    MuxLookup(io.alu_ctrl, vs1_in, Seq(
-        vfadd     -> add_sub(vs1_in, vs2_in, subOp = false.B),
-        vfsub      -> add_sub(vs2_in, vs1_in, subOp = true.B),
-        vfrsub    -> add_sub(vs1_in, vs2_in, subOp = true.B)
-    ))
+def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
+  MuxLookup(io.alu_ctrl, vs2_in, Seq(
+    vfadd  -> applyArithmeticOp(vs2_in, vs1_in, vfadd),
+    vfsub  -> applyArithmeticOp(vs2_in, vs1_in, vfsub),
+    vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
+    vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
+    vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
+    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv)  
+  ))
 }
+
 
 // for sew 
 def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
@@ -102,7 +143,7 @@ def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
                          io.alu_ctrl_con === vfcvt_rtz_xu_f_v ||
                          io.alu_ctrl_con === vfcvt_rtz_x_f_v
 
-    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt))       // Compute result based on operation type
+    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt))       // Compute result based on operation type
 
     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
         // }

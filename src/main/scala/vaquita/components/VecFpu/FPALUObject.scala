@@ -14,4 +14,7 @@ object FPALUObj{
     val vfadd              = 0.U(6.W)
     val vfsub              = 2.U(6.W)
     val vfrsub             = 39.U(6.W)
+    val vfmul              = 36.U(6.W)
+    val vfdiv              = 32.U(6.W)
+    val vfrdiv             = 33.U(6.W)
 }
