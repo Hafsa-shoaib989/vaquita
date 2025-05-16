@@ -106,7 +106,7 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             when(div.io.outValid_div || div.io.outValid_sqrt) {
                 result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, div.io.out).asSInt
         }
-        
+
         case _ =>
         result := 0.S
     }
@@ -120,7 +120,9 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
     vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
     vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
     vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
-    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv)
+    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv),
+    vfmin  -> Mux(vs2_in < vs1_in, vs2_in, vs1_in),
+    vfmax  -> Mux(vs2_in > vs1_in, vs2_in, vs1_in)
   ))
 }
 
