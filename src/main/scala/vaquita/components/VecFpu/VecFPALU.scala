@@ -11,17 +11,17 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val vs1_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val vs2_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val vs3_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))  // mask undisturbed ..and tail undisturbed 
-        val vs0_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))  // for maksing konsa element 
+        val vs0_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))  // for maksing which element 
         val sew          = Input(UInt(3.W))
-        val vl_in        = Input(UInt(32.W)) //kitne elements mein mujhe working krni hai ..body elements 
+        val vl_in        = Input(UInt(32.W)) //on how much elements i want to work ..body elements 
         val alu_ctrl     = Input(UInt(6.W))  // for arithmethic 
         val alu_ctrl_con = Input(UInt(11.W)) // for conversion 
-        val mask_arith   = Input(Bool()) //making apply krni hai yahi 
+        val mask_arith   = Input(Bool()) //want to apply masking or not?
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         // val exceptions   = Output(UInt(5.W))
     })
-// first mask_arith ko dekhe ge , then vso_in, then vs3_in ko 
-// tailing ka kaam ...vs3 and vl ke sath hai 
+// first we see mask_arith , then vso_in, and then vs3_in 
+// tailing work associated with ...vs3 and vl 
 
 //convert into one array (string)...for making masking easy...
 val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
@@ -92,7 +92,21 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             exception_reg := mul.io.exceptionFlags
             result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, mul.io.out).asSInt
 
-
+        case vfdiv | vfrdiv =>
+            val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+            div.io.a := vs2_in.asUInt
+            div.io.b := vs1_in.asUInt
+            div.io.sqrtOp := false.B
+            div.io.inValid := true.B
+            val internalReady = WireDefault(true.B)
+            internalReady := div.io.inReady 
+            div.io.roundingMode := 0.U
+            div.io.detectTininess := consts.tininess_afterRounding
+            exception_reg := div.io.exceptionFlags
+            when(div.io.outValid_div || div.io.outValid_sqrt) {
+                result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, div.io.out).asSInt
+        }
+        
         case _ =>
         result := 0.S
     }
@@ -105,8 +119,8 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
     vfsub  -> applyArithmeticOp(vs2_in, vs1_in, vfsub),
     vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
     vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
-
-
+    vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
+    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv)
   ))
 }
 
