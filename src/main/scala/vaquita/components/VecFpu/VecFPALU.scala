@@ -92,20 +92,7 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             exception_reg := mul.io.exceptionFlags
             result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, mul.io.out).asSInt
 
-        case `vfdiv` | `vfrdiv` =>
-            val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-            div.io.a := vs2_in.asUInt
-            div.io.b := vs1_in.asUInt
-            div.io.sqrtOp := false.B
-            div.io.inValid := true.B
-            val internalReady = WireDefault(false.B)
-            internalReady := div.io.inReady 
-            div.io.roundingMode := 0.U
-            div.io.detectTininess := consts.tininess_afterRounding
-            exception_reg := div.io.exceptionFlags
-            when(div.io.outValid_div || div.io.outValid_sqrt) {
-                result := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, div.io.out).asSInt
-        }
+
         case _ =>
         result := 0.S
     }
@@ -118,8 +105,8 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
     vfsub  -> applyArithmeticOp(vs2_in, vs1_in, vfsub),
     vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
     vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
-    vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
-    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv)  
+
+
   ))
 }
 
