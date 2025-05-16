@@ -61,10 +61,10 @@ class VecALU(implicit val config: VaquitaConfig) extends Module{
       val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
       val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
       for (i <- 1 to 31) {
-        comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))
+        comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
         when(comp_1bt_cn(i) === i.U) {
-          cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt
-        }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){
+          cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
+        }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   //masking for body elements
           cat_element := output_comp_Data(counter).asSInt 
         }
       }
@@ -95,11 +95,11 @@ class VecALU(implicit val config: VaquitaConfig) extends Module{
       val vs3_bit = io.vs3_in.asUInt
       var counter = 0
       for (i <- 0 until config.count_lanes) {
-        for (elem_idx <- 0 until elementsPerLane) {
-          val startBit = elem_idx * sew
-          val endBit = (elem_idx + 1) * sew - 1
+        for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
+          val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
+          val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
           if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
-            val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)
+            val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
             val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)
             val comparison = comparison_operators(vs1_elem.asSInt, vs2_elem.asSInt)
             comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
@@ -335,11 +335,11 @@ class VecALU(implicit val config: VaquitaConfig) extends Module{
         }
       }.otherwise{
         var vl_counter1 = 1
-        var counter2 = 0
+        var counter2 = 0  
         for (j <- 0 until config.count_lanes) {
           io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_element_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
           vl_counter1    = vl_counter1 + 32
-          counter2 = counter2 + 1
+          counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
           }
           for (i <- 1 until 8) {
             for (j <- 0 until config.count_lanes) {
