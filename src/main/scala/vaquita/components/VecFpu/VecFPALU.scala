@@ -147,12 +147,68 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
     vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
     vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
     vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
-    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv)
+    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv),
     vfmin  -> applyArithmeticOp(vs2_in, vs1_in, vfmin),
     vfmax  -> applyArithmeticOp(vs2_in, vs1_in, vfmax)
   ))
 }
 
+
+
+//COMPARISION INSTRUCTIONS
+def comp_element_fn(sew:Int,counter:UInt):SInt={
+    val cat_element      = WireInit(0.S(32.W))
+    val comp_fn_value    = comparison_func(sew).asSInt
+    val comp_shift       = 0
+    val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
+    val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
+    for (i <- 1 to 31) {
+    comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
+    when(comp_1bt_cn(i) === i.U) {
+        cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
+    }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   //masking for body elements
+        cat_element := output_comp_Data(counter).asSInt 
+    }
+    }
+    cat_element
+}
+
+def Comparison(vs2_in: SInt, vs1_in: SInt): Bool = {
+  MuxLookup(io.alu_ctrl, vs2_in, Seq(
+    vfadd  -> applyArithmeticOp(vs2_in, vs1_in, vfadd)
+  ))
+}
+
+def comparison_func(sew: Int): UInt = {
+    val elementsPerLane = config.vlen / sew
+    val comparison_vec_bit_wires = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+    val comp_1b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+    val comp_0b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+    val comp_vs3 = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+    val vs3_bit = io.vs3_in.asUInt
+    var counter = 0
+    for (i <- 0 until config.count_lanes) {
+    for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
+        val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
+        val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
+        if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
+        val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
+        val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)
+        val comparison = Comparison(vs1_elem.asSInt, vs2_elem.asSInt)
+        comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
+        comp_vs3(counter) := (!vs0_mask(counter) && !io.mask_arith)
+        comp_0b(counter) := (io.mask_arith && !comparison)
+        comparison_vec_bit_wires(counter) := MuxCase(0.B, Array(
+            (comp_0b(counter) === 1.B) -> 0.B,
+            (comp_vs3(counter) === 1.B) -> vs3_bit(counter),
+            (comp_1b(counter) === 1.B) -> 1.B
+        ))
+        counter += 1
+        }
+    }
+    }
+    comparison_vec_bit_wires.asUInt
+}
 
 // for sew 
 def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
@@ -185,9 +241,10 @@ def arith_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 // call main function 
 val vl= 4
 val tail = 0.B
-
+val comp_bit = "b011000".U === io.alu_opcode || "b011001".U === io.alu_opcode || "b011010".U === io.alu_opcode || "b011011".U === io.alu_opcode || "b011100".U === io.alu_opcode || "b011101".U === io.alu_opcode || "b011110".U === io.alu_opcode || "b011111".U === io.alu_opcode
+    
 when(io.sew==="b010".U){//sew = 32    
-    // when(comp_bit === 0.B) {
+    when(comp_bit === 0.B) {
     var vl_counter = 1
     for (i <- 0 until 8) {
         for (j <- 0 until config.count_lanes) {
@@ -202,14 +259,20 @@ when(io.sew==="b010".U){//sew = 32
         }
     }
 }.otherwise{
-    for (i <- 0 until 8) {
+    var vl_counter1 = 1
+    var counter2 = 0  
+    for (j <- 0 until config.count_lanes) {
+        io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_element_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+        vl_counter1    = vl_counter1 + 32
+        counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
+        }
+        for (i <- 1 until 8) {
         for (j <- 0 until config.count_lanes) {
-            io.vsd_out(i)(j) := 0.S
+            io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+        }
         }
     }
-}
-
-}
+}  
 
 
 
