@@ -114,8 +114,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             }
 
         case `vfmin` | `vfmax` =>
-            val rawA = rawFloatFromRecFN(expWidth, sigWidth, vs2_in) 
-            val rawB = rawFloatFromRecFN(expWidth, sigWidth, vs1_in) 
+            val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in) 
+            val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in) 
             
             val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
             cmp.io.a := vs2_in
@@ -126,7 +126,7 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             val oneNaN  = rawA.isNaN ^ rawB.isNaN
             val isMin = (opType === vfmin)
 
-            recOut = MuxCase(vs2_in, Seq(
+            recOut := MuxCase(vs2_in, Seq(
                             bothNaN -> canon_nan,
                             oneNaN  -> Mux(rawA.isNaN, vs1_in, vs2_in),
                             true.B  -> Mux(isMin,
@@ -156,9 +156,9 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
 
 
 //COMPARISION INSTRUCTIONS
-def comp_element_fn(sew:Int,counter:UInt):SInt={
+def comp_elem_fn(sew:Int,counter:UInt):SInt={
     val cat_element      = WireInit(0.S(32.W))
-    val comp_fn_value    = comparison_func(sew).asSInt
+    val comp_fn_value    = comp_func(sew).asSInt
     val comp_shift       = 0
     val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
     val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
@@ -173,18 +173,52 @@ def comp_element_fn(sew:Int,counter:UInt):SInt={
     cat_element
 }
 
-def Comparison(vs2_in: SInt, vs1_in: SInt): Bool = {
-  MuxLookup(io.alu_ctrl, vs2_in, Seq(
-    vmfeq  -> applyArithmeticOp(vs2_in, vs1_in, vmfeq)
-    vmfne  -> applyArithmeticOp(vs2_in, vs1_in, vmfne)
-    vmflt  -> applyArithmeticOp(vs2_in, vs1_in, vmflt)
-    vmfle  -> applyArithmeticOp(vs2_in, vs1_in, vmfle)
-    vmfgt  -> applyArithmeticOp(vs2_in, vs1_in, vmfgt)
-    vmfge  -> applyArithmeticOp(vs2_in, vs1_in, vmfge)
-  ))
+def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
+    val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+    cmp.io.a := vs2_in
+    cmp.io.b := vs1_in
+
+    // Signaling: only vmfeq and vmfne raise invalid exception *only* on signaling NaN...not on quiet NaN's
+    // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
+    switch(opType) {
+        is(vmfeq | vmfne) {
+            cmp.io.signaling := false.B
+        }
+        is(vmflt | vmfle | vmfgt |vmfge) {
+            cmp.io.signaling := true.B
+        }
+    }
+
+    val result = WireDefault(false.B)
+    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in) 
+    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in) 
+    val anyNaN = rawA.isNaN || rawB.isNaN
+
+    switch(opType) {
+    is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
+    is(vmfne) { result := !(cmp.io.eq) || anyNaN }
+    is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
+    is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
+    is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
+    is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
+    }
+
+    exception_reg := cmp.io.exceptionFlags
+    result
 }
 
-def comparison_func(sew: Int): UInt = {
+def Comparison(vs2_in: SInt, vs1_in: SInt): Bool = {
+    MuxLookup(io.alu_ctrl, false.B, Seq(
+        vmfeq -> applyComparisonOp(vs2_in, vs1_in, vmfeq),
+        vmfne -> applyComparisonOp(vs2_in, vs1_in, vmfne),
+        vmflt -> applyComparisonOp(vs2_in, vs1_in, vmflt),
+        vmfle -> applyComparisonOp(vs2_in, vs1_in, vmfle),
+        vmfgt -> applyComparisonOp(vs2_in, vs1_in, vmfgt),
+        vmfge -> applyComparisonOp(vs2_in, vs1_in, vmfge)
+    ))
+}
+
+def comp_func(sew: Int): UInt = {
     val elementsPerLane = config.vlen / sew
     val comparison_vec_bit_wires = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
     val comp_1b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
@@ -252,9 +286,11 @@ when(io.sew==="b010".U){//sew = 32
         for (j <- 0 until config.count_lanes) {
         val idx = (i * config.count_lanes) + j
         val mask = vs0_mask(idx)
+        val rec_vs2 = Wire(SInt(32.W))
+        val rec_vs1 = Wire(SInt(32.W))
         when (io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v) {
             val rec_vs2 = io.vs2_in(i)(j)
-            val rec_vs2 = 0.S
+            val rec_vs1 = 0.S
         }.otherwise {
             val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in(i)(j).asUInt)
             val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in(i)(j).asUInt)
@@ -270,7 +306,7 @@ when(io.sew==="b010".U){//sew = 32
     var vl_counter1 = 1
     var counter2 = 0  
     for (j <- 0 until config.count_lanes) {
-        io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_element_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+        io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
         vl_counter1    = vl_counter1 + 32
         counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
         }
@@ -282,7 +318,7 @@ when(io.sew==="b010".U){//sew = 32
     }
 }  
 
-
+}
 
 
 
