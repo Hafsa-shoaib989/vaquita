@@ -77,8 +77,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
     opType match {
         case `vfadd` | `vfsub` | `vfrsub` =>
             val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            add.io.a := vs2_in
-            add.io.b := vs1_in
+            add.io.a := vs2_in.asUInt
+            add.io.b := vs1_in.asUInt
             when (opType === vfsub || opType === vfrsub) {
                 add.io.subOp := true.B
             } .otherwise {
@@ -91,8 +91,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
 
         case `vfmul` =>
             val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            mul.io.a := vs2_in
-            mul.io.b := vs1_in
+            mul.io.a := vs2_in.asUInt
+            mul.io.b := vs1_in.asUInt
             mul.io.roundingMode := roundingMode
             mul.io.detectTininess := detectTininess
             recOut := mul.io.out.asSInt
@@ -100,8 +100,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
 
         case `vfdiv` | `vfrdiv` =>
             val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-            div.io.a := vs2_in
-            div.io.b := vs1_in
+            div.io.a := vs2_in.asUInt
+            div.io.b := vs1_in.asUInt
             div.io.sqrtOp := false.B
             div.io.inValid := true.B
             val internalReady = WireDefault(true.B)
@@ -118,8 +118,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in) 
             
             val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            cmp.io.a := vs2_in
-            cmp.io.b := vs1_in
+            cmp.io.a := vs2_in.asUInt
+            cmp.io.b := vs1_in.asUInt
             cmp.io.signaling := true.B 
 
             val bothNaN = rawA.isNaN && rawB.isNaN
@@ -127,12 +127,13 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             val isMin = (opType === vfmin)
 
             recOut := MuxCase(vs2_in, Seq(
-                            bothNaN -> canon_nan,
-                            oneNaN  -> Mux(rawA.isNaN, vs1_in, vs2_in),
-                            true.B  -> Mux(isMin,
-                                            Mux(cmp.io.lt || cmp.io.eq, vs2_in, vs1_in), //min
-                                            Mux(cmp.io.gt || cmp.io.eq, vs2_in, vs1_in)) //max
+                    bothNaN -> FPConfig.canon_nan.asSInt,
+                    oneNaN  -> Mux(rawA.isNaN, vs1_in, vs2_in),
+                    true.B  -> Mux(isMin,
+                                    Mux(cmp.io.lt || cmp.io.eq, vs2_in, vs1_in), //min
+                                    Mux(cmp.io.gt || cmp.io.eq, vs2_in, vs1_in))  //max
             ))
+
             exception_reg := cmp.io.exceptionFlags
 
         case _ =>
@@ -140,6 +141,7 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
     }
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 }
+
 
 def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
   MuxLookup(io.alu_ctrl, vs2_in, Seq(
@@ -175,32 +177,31 @@ def comp_elem_fn(sew:Int,counter:UInt):SInt={
 
 def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-    cmp.io.a := vs2_in
-    cmp.io.b := vs1_in
+    cmp.io.a := vs2_in.asUInt
+    cmp.io.b := vs1_in.asUInt
 
     // Signaling: only vmfeq and vmfne raise invalid exception *only* on signaling NaN...not on quiet NaN's
     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
-    switch(opType) {
-        is(vmfeq | vmfne) {
-            cmp.io.signaling := false.B
-        }
-        is(vmflt | vmfle | vmfgt |vmfge) {
-            cmp.io.signaling := true.B
-        }
-    }
+    when (opType === vmfeq || opType === vmfne) {
+        cmp.io.signaling := false.B
+    }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
+        cmp.io.signaling := true.B
+    }.otherwise {
+        cmp.io.signaling := false.B
+    } 
 
     val result = WireDefault(false.B)
-    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in) 
-    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in) 
+    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
+    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
     val anyNaN = rawA.isNaN || rawB.isNaN
 
     switch(opType) {
-    is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
-    is(vmfne) { result := !(cmp.io.eq) || anyNaN }
-    is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
-    is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
-    is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
-    is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
+        is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
+        is(vmfne) { result := !(cmp.io.eq) || anyNaN }
+        is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
+        is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
+        is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
+        is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
     }
 
     exception_reg := cmp.io.exceptionFlags
