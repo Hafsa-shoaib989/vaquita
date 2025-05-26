@@ -25,4 +25,15 @@ object FPALUObj{
     val vmfle              = 25.U(6.W)
     val vmfgt              = 29.U(6.W)
     val vmfge              = 31.U(6.W)
+    val vfmv               = 23.U(6.W)
+    val vfmacc             = 44.U(6.W)
+    val vfnmacc            = 45.U(6.W)
+    val vfmsac             = 46.U(6.W)
+    val vfnmsac            = 47.U(6.W)
+    val vfmadd             = 40.U(6.W) 
+    val vfnmadd            = 41.U(6.W)
+    val vfmsub             = 42.U(6.W)
+    val vfnmsub            = 43.U(6.W)
+    // VFUNARY1             
+    val vfsqrt             = Cat("b010011".U(6.W), "b00000".U(5.W))       //vfsqrt.v    //concatenation func6 + vs1
 }

@@ -65,20 +65,21 @@ def Conversion(vs2_in: SInt): SInt = {
 
 
 //ARITHMETIC INSTRUCTIONS
-// val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in.asUInt)
-// val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in.asUInt)
-
 val roundingMode = 0.U
 val detectTininess = consts.tininess_afterRounding
 
-def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
+def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt = {
     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+    val recC = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vsd.asUInt)
 
     opType match {
         case `vfadd` | `vfsub` | `vfrsub` =>
             val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            add.io.a := vs2_in.asUInt
-            add.io.b := vs1_in.asUInt
+            add.io.a := recA
+            add.io.b := recB
             when (opType === vfsub || opType === vfrsub) {
                 add.io.subOp := true.B
             } .otherwise {
@@ -91,8 +92,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
 
         case `vfmul` =>
             val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            mul.io.a := vs2_in.asUInt
-            mul.io.b := vs1_in.asUInt
+            mul.io.a := recA
+            mul.io.b := recB
             mul.io.roundingMode := roundingMode
             mul.io.detectTininess := detectTininess
             recOut := mul.io.out.asSInt
@@ -100,8 +101,8 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
 
         case `vfdiv` | `vfrdiv` =>
             val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-            div.io.a := vs2_in.asUInt
-            div.io.b := vs1_in.asUInt
+            div.io.a := recA
+            div.io.b := recB
             div.io.sqrtOp := false.B
             div.io.inValid := true.B
             val internalReady = WireDefault(true.B)
@@ -114,27 +115,64 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
             }
 
         case `vfmin` | `vfmax` =>
-            val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in) 
-            val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in) 
+            val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+            val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
             
             val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            cmp.io.a := vs2_in.asUInt
-            cmp.io.b := vs1_in.asUInt
+            cmp.io.a := recA
+            cmp.io.b := recB
             cmp.io.signaling := true.B 
 
             val bothNaN = rawA.isNaN && rawB.isNaN
             val oneNaN  = rawA.isNaN ^ rawB.isNaN
             val isMin = (opType === vfmin)
 
-            recOut := MuxCase(vs2_in, Seq(
+            recOut := MuxCase(recA.asSInt, Seq(
                     bothNaN -> FPConfig.canon_nan.asSInt,
-                    oneNaN  -> Mux(rawA.isNaN, vs1_in, vs2_in),
+                    oneNaN  -> Mux(rawA.isNaN, recB.asSInt, recA.asSInt),
                     true.B  -> Mux(isMin,
-                                    Mux(cmp.io.lt || cmp.io.eq, vs2_in, vs1_in), //min
-                                    Mux(cmp.io.gt || cmp.io.eq, vs2_in, vs1_in))  //max
+                                    Mux(cmp.io.lt || cmp.io.eq, recA.asSInt, recB.asSInt), //min
+                                    Mux(cmp.io.gt || cmp.io.eq, recA.asSInt, recB.asSInt))  //max
             ))
 
             exception_reg := cmp.io.exceptionFlags
+
+        case `vfmacc` | `vfnmacc` | `vfmsac` | `vfnmsac` | `vfmadd` | `vfnmadd` | `vfmsub` | `vfnmsub` =>
+            val fma = Module(new MulAddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            val op = WireDefault("b00".U(2.W))
+
+            when (opType === vfmacc || opType === vfmadd) {
+                op := "b00".U
+            } .elsewhen (opType === vfmsac || opType === vfmsub) {
+                op := "b01".U
+            } .elsewhen (opType === vfnmsac || opType === vfnmsub) {
+                op := "b10".U
+            } .elsewhen (opType === vfnmacc || opType === vfnmadd) {
+                op := "b11".U
+            }
+
+            val recA_ma = WireDefault(recA)
+            val recB_ma = WireDefault(recA)
+            val recC_ma = WireDefault(recA)
+
+            when (opType === vfmadd || opType === vfmsub || opType === vfnmadd || opType === vfnmsub) {
+                recA_ma := recA  // vs1
+                recB_ma := recC  // vd
+                recC_ma := recB  // vs2
+            } .otherwise {
+                recA_ma := recA  // vs1
+                recB_ma := recB  // vs2
+                recC_ma := recC  // vd
+            }
+
+            fma.io.op := op
+            fma.io.a := recA_ma
+            fma.io.b := recB_ma
+            fma.io.c := recC_ma
+            fma.io.roundingMode := roundingMode
+            fma.io.detectTininess := detectTininess
+            recOut := fma.io.out.asSInt
+            exception_reg := fma.io.exceptionFlags
 
         case _ =>
         recOut := 0.S
@@ -143,17 +181,26 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): SInt = {
 }
 
 
-def Arithmetic(vs2_in: SInt, vs1_in: SInt): SInt = {
-  MuxLookup(io.alu_ctrl, vs2_in, Seq(
-    vfadd  -> applyArithmeticOp(vs2_in, vs1_in, vfadd),
-    vfsub  -> applyArithmeticOp(vs2_in, vs1_in, vfsub),
-    vfrsub -> applyArithmeticOp(vs1_in, vs2_in, vfrsub),
-    vfmul  -> applyArithmeticOp(vs2_in, vs1_in, vfmul),  
-    vfdiv  -> applyArithmeticOp(vs2_in, vs1_in, vfdiv),
-    vfrdiv -> applyArithmeticOp(vs1_in, vs2_in, vfdiv),
-    vfmin  -> applyArithmeticOp(vs2_in, vs1_in, vfmin),
-    vfmax  -> applyArithmeticOp(vs2_in, vs1_in, vfmax)
-  ))
+def Arithmetic(vs2_in: SInt, vs1_in: SInt, vsd: SInt): SInt = {
+    MuxLookup(io.alu_ctrl, vs2_in, Seq(
+        vfadd   -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfsub   -> applyArithmeticOp(vs2_in, vs1_in, vfsub, vsd),
+        vfrsub  -> applyArithmeticOp(vs1_in, vs2_in, vfrsub, vsd),
+        vfmul   -> applyArithmeticOp(vs2_in, vs1_in, vfmul, vsd),  
+        vfdiv   -> applyArithmeticOp(vs2_in, vs1_in, vfdiv, vsd),
+        vfrdiv  -> applyArithmeticOp(vs1_in, vs2_in, vfdiv, vsd),
+        vfmin   -> applyArithmeticOp(vs2_in, vs1_in, vfmin, vsd),
+        vfmax   -> applyArithmeticOp(vs2_in, vs1_in, vfmax, vsd),
+        vfmv    -> (vs1_in),
+        vfmacc  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfnmacc -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfmsac  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfnmsac -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfmadd  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfnmadd -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfmsub  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfnmsub -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd)
+    ))
 }
 
 
@@ -266,7 +313,7 @@ def sew_arit_32(vs2:SInt , vs1:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     // Define known conversion operations
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
 
-    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt))       // Compute result based on operation type
+    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt))       // Compute result based on operation type
 
     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
         // }
@@ -287,39 +334,86 @@ when(io.sew==="b010".U){//sew = 32
         for (j <- 0 until config.count_lanes) {
         val idx = (i * config.count_lanes) + j
         val mask = vs0_mask(idx)
-        val rec_vs2 = Wire(SInt(32.W))
-        val rec_vs1 = Wire(SInt(32.W))
-        when (io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v) {
-            val rec_vs2 = io.vs2_in(i)(j)
-            val rec_vs1 = 0.S
-        }.otherwise {
-            val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in(i)(j).asUInt)
-            val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in(i)(j).asUInt)
-        }
+        // val rec_vs2 = Wire(SInt(32.W))
+        // val rec_vs1 = Wire(SInt(32.W))
+        // when (io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v) {
+        //     val rec_vs2 = io.vs2_in(i)(j)
+        //     val rec_vs1 = 0.S
+        // }.otherwise {
+        //     val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in(i)(j).asUInt)
+        //     val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in(i)(j).asUInt)
+        // }
         io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,
-            sew_arit_32(rec_vs2, rec_vs1, io.vs3_in(i)(j), mask),
+            sew_arit_32( io.vs2_in(i)(j), io.vs1_in(i)(j), io.vs3_in(i)(j), mask),
             Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
         )     
         vl_counter = vl_counter + 1
         }
     }
-}.otherwise{
-    var vl_counter1 = 1
-    var counter2 = 0  
-    for (j <- 0 until config.count_lanes) {
-        io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
-        vl_counter1    = vl_counter1 + 32
-        counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
-        }
-        for (i <- 1 until 8) {
+    }.otherwise{
+        var vl_counter1 = 1
+        var counter2 = 0  
         for (j <- 0 until config.count_lanes) {
-            io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+            io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+            vl_counter1    = vl_counter1 + 32
+            counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
+            }
+            for (i <- 1 until 8) {
+            for (j <- 0 until config.count_lanes) {
+                io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+            }
+            }
         }
-        }
+}.otherwise{
+    var vl_counter = 1
+    for (i <- 0 until 8) {
+    for (j <- 0 until config.count_lanes) {
+        val idx = (i * config.count_lanes) + j
+        val mask = vs0_mask(idx)
+        io.vsd_out(i)(j) :=0.S 
+        vl_counter = vl_counter + 1
+    }
     }
 }  
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
