@@ -65,8 +65,32 @@ def Conversion(vs2_in: SInt): SInt = {
 
 
 //ARITHMETIC INSTRUCTIONS
+val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+val fma = Module(new MulAddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+
 val roundingMode = 0.U
 val detectTininess = consts.tininess_afterRounding
+
+add.io.a := 0.U; add.io.b := 0.U; add.io.subOp := false.B  //add
+add.io.roundingMode := roundingMode
+add.io.detectTininess := detectTininess
+mul.io.a := 0.U; mul.io.b := 0.U    //mul
+mul.io.roundingMode := roundingMode
+mul.io.detectTininess := detectTininess
+div.io.a := 0.U; div.io.b := 0.U    //div
+div.io.sqrtOp := false.B
+div.io.inValid := false.B
+div.io.roundingMode := roundingMode
+div.io.detectTininess := detectTininess
+cmp.io.a := 0.U; cmp.io.b := 0.U    //cmp
+cmp.io.signaling := false.B
+fma.io.a := 0.U; fma.io.b := 0.U; fma.io.c := 0.U   //fma
+fma.io.op := 0.U
+fma.io.roundingMode := roundingMode
+fma.io.detectTininess := detectTininess
 
 def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt = {
     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
@@ -77,7 +101,6 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
 
     opType match {
         case `vfadd` | `vfsub` | `vfrsub` =>
-            val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
             add.io.a := recA
             add.io.b := recB
             when (opType === vfsub || opType === vfrsub) {
@@ -91,7 +114,6 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             exception_reg := add.io.exceptionFlags
 
         case `vfmul` =>
-            val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
             mul.io.a := recA
             mul.io.b := recB
             mul.io.roundingMode := roundingMode
@@ -99,11 +121,15 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             recOut := mul.io.out.asSInt
             exception_reg := mul.io.exceptionFlags
 
-        case `vfdiv` | `vfrdiv` =>
-            val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+        case `vfdiv` | `vfrdiv` | `vfsqrt` =>
             div.io.a := recA
-            div.io.b := recB
-            div.io.sqrtOp := false.B
+            when (opType === vfdiv || opType === vfrdiv) {
+                div.io.b := recB
+                div.io.sqrtOp := false.B
+            } .otherwise {
+                div.io.b := 0.U
+                div.io.sqrtOp := true.B
+            }
             div.io.inValid := true.B
             val internalReady = WireDefault(true.B)
             internalReady := div.io.inReady 
@@ -118,7 +144,6 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
             val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
             
-            val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
             cmp.io.a := recA
             cmp.io.b := recB
             cmp.io.signaling := true.B 
@@ -138,7 +163,6 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             exception_reg := cmp.io.exceptionFlags
 
         case `vfmacc` | `vfnmacc` | `vfmsac` | `vfnmsac` | `vfmadd` | `vfnmadd` | `vfmsub` | `vfnmsub` =>
-            val fma = Module(new MulAddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
             val op = WireDefault("b00".U(2.W))
 
             when (opType === vfmacc || opType === vfmadd) {
@@ -203,6 +227,36 @@ def Arithmetic(vs2_in: SInt, vs1_in: SInt, vsd: SInt): SInt = {
     ))
 }
 
+def applyArithmeticUnaryOp(vs2_in: SInt, opType: UInt): SInt = {
+    val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    opType match {
+        case `vfsqrt` =>
+            div.io.a := recA
+            div.io.b := 0.U
+            div.io.sqrtOp := true.B
+            div.io.inValid := true.B
+            val internalReady = WireDefault(true.B)
+            internalReady := div.io.inReady 
+            div.io.roundingMode := roundingMode
+            div.io.detectTininess := detectTininess
+            when(div.io.outValid_div || div.io.outValid_sqrt) {
+                recOut := div.io.out.asSInt
+                exception_reg := div.io.exceptionFlags
+            }
+        case _ =>
+        recOut := 0.S
+    }
+    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
+}
+
+
+def ArithmeticUnary(vs2_in: SInt): SInt = {
+    MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
+        vfsqrt -> applyArithmeticUnaryOp(vs2_in, vfsqrt)
+    ))
+}
 
 //COMPARISION INSTRUCTIONS
 def comp_elem_fn(sew:Int,counter:UInt):SInt={
@@ -312,9 +366,15 @@ def sew_arit_32(vs2:SInt , vs1:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 
     // Define known conversion operations
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
-
-    val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt))       // Compute result based on operation type
-
+    val isUnaryArithmeticOp = io.alu_ctrl_con === vfsqrt
+    // val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt))       // Compute result based on operation type
+    val computed_result = Mux(isConversionOp,
+                              Conversion(vs2.asSInt),
+                              Mux(isUnaryArithmeticOp,
+                                  ArithmeticUnary(vs2.asSInt),
+                                  Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt)  
+                              )
+                        )
     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
         // }
     vec_sew32_result := vec_sew32_b
