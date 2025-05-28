@@ -264,6 +264,28 @@ def ArithmeticUnary(vs2_in: SInt): SInt = {
     ))
 }
 
+
+//SIGN INJECTION INSTRUCTIONS
+def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
+    val sign_inject_result = WireDefault(vs2_in)
+
+    val sign_vs1 = vs1_in.asUInt()(31)
+    val sign_vs2 = vs2_in.asUInt()(31)
+
+    val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
+        vfsgnj  -> sign_vs1,
+        vfsgnjn -> ~sign_vs1,
+        vfsgnjx -> (sign_vs1 ^ sign_vs2)
+    ))
+
+    val magnitude = vs2_in.asUInt()(30, 0) // remove sign bit
+    val final_bits = Cat(new_sign, magnitude)
+    sign_inject_result := final_bits.asSInt
+
+    sign_inject_result
+}
+
+
 //COMPARISION INSTRUCTIONS
 def comp_elem_fn(sew:Int,counter:UInt):SInt={
     val cat_element      = WireInit(0.S(32.W))
@@ -373,14 +395,18 @@ def sew_arit_32(vs2:SInt , vs1:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     // Define known conversion operations
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
     val isUnaryArithmeticOp = io.alu_ctrl_con === vfsqrt || io.alu_ctrl_con === vfclass
+    val isSignInject = io.alu_ctrl === vfsgnj || io.alu_ctrl === vfsgnjn || io.alu_ctrl === vfsgnjx
     // val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt))       // Compute result based on operation type
     val computed_result = Mux(isConversionOp,
-                              Conversion(vs2.asSInt),
-                              Mux(isUnaryArithmeticOp,
-                                  ArithmeticUnary(vs2.asSInt),
-                                  Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt)  
+                          Conversion(vs2.asSInt),
+                          Mux(isUnaryArithmeticOp,
+                              ArithmeticUnary(vs2.asSInt),
+                              Mux(isSignInject,
+                                  signInject(vs1.asSInt, vs2.asSInt),
+                                  Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt)
                               )
-                        )
+                          )
+                    )
     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
         // }
     vec_sew32_result := vec_sew32_b
