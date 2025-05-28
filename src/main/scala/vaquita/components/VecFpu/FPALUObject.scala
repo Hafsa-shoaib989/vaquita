@@ -36,4 +36,6 @@ object FPALUObj{
     val vfnmsub            = 43.U(6.W)
     // VFUNARY1             
     val vfsqrt             = Cat("b010011".U(6.W), "b00000".U(5.W))       //vfsqrt.v    //concatenation func6 + vs1
+    val vfclass            = Cat("b010011".U(6.W), "b10000".U(5.W))
+    val vfmerge            = 23.U(6.W)
 }
