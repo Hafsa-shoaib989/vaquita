@@ -5,8 +5,6 @@ import chisel3.stage.ChiselStage
 import vaquita.pipeline.{DecodeStage,ExcuteStage,MemStage,WBStage}
 import vaquita.components.{VecMemFetch,ForwardingUnit,MemRequestIO,MemResponseIO}
 import vaquita.configparameter.VaquitaConfig
-// import vaquita.components.VecFpu.VecFPParameters
-
 
 class VaquitaTop extends Module {
     val io = IO(new Bundle{
@@ -19,7 +17,6 @@ class VaquitaTop extends Module {
         
     })
     implicit val vec_config = VaquitaConfig (256,32,32,8,true)
-//     implicit val vec_FPconfig = VaquitaConfig (256,32,32,8,true)
 
     val de_stage = Module(new DecodeStage()(vec_config))
     val DE        = de_stage.io

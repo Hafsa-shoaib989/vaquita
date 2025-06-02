@@ -4,8 +4,6 @@ import chisel3.tester._
 import org.scalatest.freespec.AnyFreeSpec
 import chisel3.experimental.BundleLiterals._
 import vaquita.configparameter.VaquitaConfig
-// import vaquita.components.VecFpu.VecFPParameters
-
 
 class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
   "vec top test" in {

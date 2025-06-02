@@ -51,7 +51,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
 
     vec_cu_module.io.instr := io.de_io.instr
 
-    val fpu = vec_cu_module.io.is_float
+    val fpu = vec_cu_module.io.is_float  // FP Signal
     
     /** Vector Register File Wiring */
     vec_reg_module.io.vs1_addr         := io.de_io.instr(19, 15)
@@ -81,7 +81,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     io.de_io.de_fpu_signal:= fpu
 
     /** ALU Operation */
-    when(config.F.B && fpu) {
+    when(config.F.B && fpu) { // FP
         io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))
         io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)
         io.de_io.alu_op_out :=  0.U

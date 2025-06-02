@@ -13,21 +13,18 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val vs3_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))  // mask undisturbed ..and tail undisturbed 
         val vs0_in       = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))  // for maksing which element 
         val sew          = Input(UInt(3.W))
-        val vl_in        = Input(UInt(32.W)) //on how much elements i want to work ..body elements 
-        val alu_ctrl     = Input(UInt(6.W))  // for arithmethic 
-        val alu_ctrl_con = Input(UInt(11.W)) // for conversion 
-        val mask_arith   = Input(Bool()) //want to apply masking or not?
+        val vl_in        = Input(UInt(32.W))  // on how much elements i want to work ..body elements 
+        val alu_ctrl     = Input(UInt(6.W))   // for arithmethic 
+        val alu_ctrl_con = Input(UInt(11.W))  // for conversion 
+        val mask_arith   = Input(Bool())      // want to apply masking or not?
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         // val exceptions   = Output(UInt(5.W))
-    })
-// first we see mask_arith , then vso_in, and then vs3_in 
-// tailing work associated with ...vs3 and vl 
+    }) 
 
-//convert into one array (string)...for making masking easy...
-val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)
+val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)  // convert into one array (string), for making masking easy.
 
 val exception_reg = RegInit(0.U(5.W))
-// io.exceptions := exception_reg
+
 
 //CONVERSION INSTRUCTIONS
 def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
@@ -42,7 +39,6 @@ def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
 
 def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
     val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
-
     val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
     conv.io.in := recFN
     conv.io.roundingMode := roundingMode 
@@ -61,7 +57,6 @@ def Conversion(vs2_in: SInt): SInt = {
         vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
     ))
 }
-
 
 
 //ARITHMETIC INSTRUCTIONS
@@ -92,11 +87,11 @@ fma.io.op := 0.U
 fma.io.roundingMode := roundingMode
 fma.io.detectTininess := detectTininess
 
-def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt = {
+def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt = {
     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
 
-    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
     val recC = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vsd.asUInt)
 
     opType match {
@@ -122,12 +117,12 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             exception_reg := mul.io.exceptionFlags
 
         case `vfdiv` | `vfrdiv` | `vfsqrt` =>
-            div.io.a := recA
-            when (opType === vfdiv || opType === vfrdiv) {
-                div.io.b := recB
+            div.io.b := recB
+            when (opType === vfdiv || opType === vfrdiv) {  
+                div.io.a := recA
                 div.io.sqrtOp := false.B
             } .otherwise {
-                div.io.b := 0.U
+                div.io.a := 0.U
                 div.io.sqrtOp := true.B
             }
             div.io.inValid := true.B
@@ -152,12 +147,12 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
             val oneNaN  = rawA.isNaN ^ rawB.isNaN
             val isMin = (opType === vfmin)
 
-            recOut := MuxCase(recA.asSInt, Seq(
+            recOut := MuxCase(recB.asSInt, Seq(
                     bothNaN -> FPConfig.canon_nan.asSInt,
-                    oneNaN  -> Mux(rawA.isNaN, recB.asSInt, recA.asSInt),
+                    oneNaN  -> Mux(rawA.isNaN, recA.asSInt, recB.asSInt),
                     true.B  -> Mux(isMin,
-                                    Mux(cmp.io.lt || cmp.io.eq, recA.asSInt, recB.asSInt), //min
-                                    Mux(cmp.io.gt || cmp.io.eq, recA.asSInt, recB.asSInt))  //max
+                                    Mux(cmp.io.lt || cmp.io.eq, recB.asSInt, recA.asSInt), //min
+                                    Mux(cmp.io.gt || cmp.io.eq, recB.asSInt, recA.asSInt))  //max
             ))
 
             exception_reg := cmp.io.exceptionFlags
@@ -204,26 +199,25 @@ def applyArithmeticOp(vs2_in: SInt, vs1_in: SInt, opType: UInt, vsd: SInt): SInt
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 }
 
-
-def Arithmetic(vs2_in: SInt, vs1_in: SInt, vsd: SInt): SInt = {
+def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): SInt = {
     MuxLookup(io.alu_ctrl, vs2_in, Seq(
-        vfadd   -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfsub   -> applyArithmeticOp(vs2_in, vs1_in, vfsub, vsd),
-        vfrsub  -> applyArithmeticOp(vs1_in, vs2_in, vfrsub, vsd),
-        vfmul   -> applyArithmeticOp(vs2_in, vs1_in, vfmul, vsd),  
-        vfdiv   -> applyArithmeticOp(vs2_in, vs1_in, vfdiv, vsd),
-        vfrdiv  -> applyArithmeticOp(vs1_in, vs2_in, vfdiv, vsd),
-        vfmin   -> applyArithmeticOp(vs2_in, vs1_in, vfmin, vsd),
-        vfmax   -> applyArithmeticOp(vs2_in, vs1_in, vfmax, vsd),
-        vfmv    -> (vs1_in),
-        vfmacc  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfnmacc -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfmsac  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfnmsac -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfmadd  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfnmadd -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfmsub  -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
-        vfnmsub -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd)
+        vfadd           -> applyArithmeticOp(vs2_in, vs1_in, vfadd, vsd),
+        vfsub           -> applyArithmeticOp(vs2_in, vs1_in, vfsub, vsd),
+        vfrsub          -> applyArithmeticOp(vs1_in, vs2_in, vfrsub, vsd),
+        vfmul           -> applyArithmeticOp(vs2_in, vs1_in, vfmul, vsd),  
+        vfdiv           -> applyArithmeticOp(vs2_in, vs1_in, vfdiv, vsd),
+        vfrdiv          -> applyArithmeticOp(vs1_in, vs2_in, vfdiv, vsd),
+        vfmin           -> applyArithmeticOp(vs2_in, vs1_in, vfmin, vsd),
+        vfmax           -> applyArithmeticOp(vs2_in, vs1_in, vfmax, vsd),
+        vfmv_vfmerge    -> (vs1_in),
+        vfmacc          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfnmacc         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfmsac          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfnmsac         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfmadd          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfnmadd         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfmsub          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
+        vfnmsub         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd)
     ))
 }
 
@@ -249,40 +243,18 @@ def applyArithmeticUnaryOp(vs2_in: SInt, opType: UInt): SInt = {
         case `vfclass` =>
             val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
             recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
-        
+
         case _ =>
         recOut := 0.S
     }
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 }
 
-
 def ArithmeticUnary(vs2_in: SInt): SInt = {
     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
-        vfsqrt  -> applyArithmeticUnaryOp(vs2_in, vfsqrt),
+        vfsqrt -> applyArithmeticUnaryOp(vs2_in, vfsqrt),
         vfclass -> applyArithmeticUnaryOp(vs2_in, vfclass)
     ))
-}
-
-
-//SIGN INJECTION INSTRUCTIONS
-def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
-    val sign_inject_result = WireDefault(vs2_in)
-
-    val sign_vs1 = vs1_in.asUInt()(31)
-    val sign_vs2 = vs2_in.asUInt()(31)
-
-    val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
-        vfsgnj  -> sign_vs1,
-        vfsgnjn -> ~sign_vs1,
-        vfsgnjx -> (sign_vs1 ^ sign_vs2)
-    ))
-
-    val magnitude = vs2_in.asUInt()(30, 0) // remove sign bit
-    val final_bits = Cat(new_sign, magnitude)
-    sign_inject_result := final_bits.asSInt
-
-    sign_inject_result
 }
 
 
@@ -297,7 +269,7 @@ def comp_elem_fn(sew:Int,counter:UInt):SInt={
     comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
     when(comp_1bt_cn(i) === i.U) {
         cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
-    }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   //masking for body elements
+    }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   // masking for body elements
         cat_element := output_comp_Data(counter).asSInt 
     }
     }
@@ -309,7 +281,7 @@ def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
     cmp.io.a := vs2_in.asUInt
     cmp.io.b := vs1_in.asUInt
 
-    // Signaling: only vmfeq and vmfne raise invalid exception *only* on signaling NaN...not on quiet NaN's
+    // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
     when (opType === vmfeq || opType === vmfne) {
         cmp.io.signaling := false.B
@@ -360,12 +332,12 @@ def comp_func(sew: Int): UInt = {
     for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
         val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
         val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
-        if (endBit < io.vs2_in(i).getWidth && endBit < io.vs1_in(i).getWidth) {
-        val vs2_elem = io.vs1_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
-        val vs1_elem = io.vs2_in(i).asUInt()(endBit, startBit)
-        val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_elem.asUInt)
+        if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
+        val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)
+        val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
         val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_elem.asUInt)
-        val comparison = Comparison(rec_vs2.asSInt, rec_vs1.asSInt)
+        val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_elem.asUInt)
+        val comparison = Comparison(rec_vs1.asSInt, rec_vs2.asSInt)
         comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
         comp_vs3(counter) := (!vs0_mask(counter) && !io.mask_arith)
         comp_0b(counter) := (io.mask_arith && !comparison)
@@ -381,65 +353,73 @@ def comp_func(sew: Int): UInt = {
     comparison_vec_bit_wires.asUInt
 }
 
-// for sew 
-def sew_arit_32(vs2:SInt , vs1:SInt,vs3:SInt,mask_vs0:Bool):SInt={
+
+//SIGN INJECTION INSTRUCTIONS
+def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
+    val sign_inject_result = WireDefault(vs2_in)
+    val sign_vs1 = vs1_in.asUInt()(31)
+    val sign_vs2 = vs2_in.asUInt()(31)
+
+    val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
+        vfsgnj  -> sign_vs1,
+        vfsgnjn -> ~sign_vs1,
+        vfsgnjx -> (sign_vs1 ^ sign_vs2)
+    ))
+    val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
+    val final_bits = Cat(new_sign, magnitude)
+    sign_inject_result := final_bits.asSInt
+    sign_inject_result
+}
+
+
+
+// for sew's
+def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     val vsetvli_mask = 0.B
     val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
     val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
     val vec_sew32_b = WireInit(0.S(32.W))
     val vec_sew32_result = WireInit(0.S(config.XLEN.W))
-    // when(io.alu_ctrl==="b010000".U || io.alu_ctrl==="b010010".U){
-    //     vec_sew32_b := (Arithmatic(vs1, vs2,vs3,32,mask_vs0.asUInt)).asSInt
-    //     }.otherwise{
 
-    // Define known conversion operations
+    // Define known operations
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
     val isUnaryArithmeticOp = io.alu_ctrl_con === vfsqrt || io.alu_ctrl_con === vfclass
     val isSignInject = io.alu_ctrl === vfsgnj || io.alu_ctrl === vfsgnjn || io.alu_ctrl === vfsgnjx
-    // val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt))       // Compute result based on operation type
     val computed_result = Mux(isConversionOp,
-                          Conversion(vs2.asSInt),
-                          Mux(isUnaryArithmeticOp,
-                              ArithmeticUnary(vs2.asSInt),
-                              Mux(isSignInject,
-                                  signInject(vs1.asSInt, vs2.asSInt),
-                                  Arithmetic(vs2.asSInt, vs1.asSInt, vs3.asSInt)
+                              Conversion(vs2.asSInt),
+                              Mux(isUnaryArithmeticOp,
+                                  ArithmeticUnary(vs2.asSInt),
+                                  Mux(isSignInject,
+                                    signInject(vs1.asSInt, vs2.asSInt),
+                                    Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
                               )
-                          )
-                    )
+                        )
+                    )       
     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
-        // }
     vec_sew32_result := vec_sew32_b
     vec_sew32_result
 }
 
 
-// call main function 
+
+// calling main function 
 val vl= 4
 val tail = 0.B
 val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl === vmflt || io.alu_ctrl === vmfle || io.alu_ctrl === vmfgt || io.alu_ctrl === vmfge
     
-when(io.sew==="b010".U){//sew = 32    
+when(io.sew==="b010".U){ // sew = 32    
     when(comp_bit === 0.B) {
-    var vl_counter = 1
-    for (i <- 0 until 8) {
-        for (j <- 0 until config.count_lanes) {
-        val idx = (i * config.count_lanes) + j
-        val mask = vs0_mask(idx)
-        // val rec_vs2 = Wire(SInt(32.W))
-        // val rec_vs1 = Wire(SInt(32.W))
-        // when (io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v) {
-        //     val rec_vs2 = io.vs2_in(i)(j)
-        //     val rec_vs1 = 0.S
-        // }.otherwise {
-        //     val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in(i)(j).asUInt)
-        //     val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in(i)(j).asUInt)
-        // }
-        io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,
-            sew_arit_32( io.vs2_in(i)(j), io.vs1_in(i)(j), io.vs3_in(i)(j), mask),
-            Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-        )     
-        vl_counter = vl_counter + 1
+        var vl_counter = 1
+        for (i <- 0 until 8) {
+            for (j <- 0 until config.count_lanes) {
+            val idx = (i * config.count_lanes) + j
+            val mask = vs0_mask(idx)
+
+            io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,                          
+                sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), Mux(io.alu_ctrl === vfmv_vfmerge, io.vs2_in(i)(j), io.vs3_in(i)(j)), mask),     //vfmerge instruction
+                Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+            )     
+            vl_counter = vl_counter + 1
         }
     }
     }.otherwise{
@@ -448,7 +428,7 @@ when(io.sew==="b010".U){//sew = 32
         for (j <- 0 until config.count_lanes) {
             io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
             vl_counter1    = vl_counter1 + 32
-            counter2 = counter2 + 1  //increment until reach vl, when reaches then tailing applied
+            counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
             }
             for (i <- 1 until 8) {
             for (j <- 0 until config.count_lanes) {
@@ -469,4 +449,3 @@ when(io.sew==="b010".U){//sew = 32
 }  
 
 }
-
