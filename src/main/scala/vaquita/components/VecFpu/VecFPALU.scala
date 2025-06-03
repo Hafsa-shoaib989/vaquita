@@ -206,18 +206,18 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): SInt = {
         vfrsub          -> applyArithmeticOp(vs1_in, vs2_in, vfrsub, vsd),
         vfmul           -> applyArithmeticOp(vs2_in, vs1_in, vfmul, vsd),  
         vfdiv           -> applyArithmeticOp(vs2_in, vs1_in, vfdiv, vsd),
-        vfrdiv          -> applyArithmeticOp(vs1_in, vs2_in, vfdiv, vsd),
+        vfrdiv          -> applyArithmeticOp(vs1_in, vs2_in, vfrdiv, vsd),
         vfmin           -> applyArithmeticOp(vs2_in, vs1_in, vfmin, vsd),
         vfmax           -> applyArithmeticOp(vs2_in, vs1_in, vfmax, vsd),
         vfmv_vfmerge    -> (vs1_in),
-        vfmacc          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfnmacc         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfmsac          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfnmsac         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfmadd          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfnmadd         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfmsub          -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd),
-        vfnmsub         -> applyArithmeticOp(vs1_in, vs2_in, vfadd, vsd)
+        vfmacc          -> applyArithmeticOp(vs1_in, vs2_in, vfmacc, vsd),
+        vfnmacc         -> applyArithmeticOp(vs1_in, vs2_in, vfnmacc, vsd),
+        vfmsac          -> applyArithmeticOp(vs1_in, vs2_in, vfmsac, vsd),
+        vfnmsac         -> applyArithmeticOp(vs1_in, vs2_in, vfnmsac, vsd),
+        vfmadd          -> applyArithmeticOp(vs1_in, vs2_in, vfmadd, vsd),
+        vfnmadd         -> applyArithmeticOp(vs1_in, vs2_in, vfnmadd, vsd),
+        vfmsub          -> applyArithmeticOp(vs1_in, vs2_in, vfmsub, vsd),
+        vfnmsub         -> applyArithmeticOp(vs1_in, vs2_in, vfnmsub, vsd)
     ))
 }
 
