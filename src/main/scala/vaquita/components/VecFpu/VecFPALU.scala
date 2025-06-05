@@ -406,9 +406,10 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 val vl= 4
 val tail = 0.B
 val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl === vmflt || io.alu_ctrl === vmfle || io.alu_ctrl === vmfgt || io.alu_ctrl === vmfge
-    
+val reduc_bit = io.alu_ctrl === vmfeq
+
 when(io.sew==="b010".U){ // sew = 32    
-    when(comp_bit === 0.B) {
+    when(comp_bit === 0.B && reduc_bit === 0.B) {
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
@@ -422,6 +423,33 @@ when(io.sew==="b010".U){ // sew = 32
             vl_counter = vl_counter + 1
         }
     }
+//     }.elsewhen (comp_bit === 0.B && reduc_bit === 1.B) {
+//         var vl_counter = 1
+//         val mask_bit_active_element = (mask_vs0===1.B && io.mask_arith===0.B) || io.mask_arith===1.B
+//         // val mask_bit_inactive = mask_vs0===0.B && io.mask_arith===0.B
+//         val mask_bit_undisturb = mask_vs0===0.B && io.mask_arith===0.B && vsetvli_mask===0.B
+//         val acc = Wire(SInt(32.W))
+//         val startVal = io.vs1_in(0)(0)
+//         acc := startVal
+// // io.vsd_out(0)(0) := startVal
+
+//         for (i <- 0 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//             // val idx = (i * config.count_lanes) + j
+//             // val mask = vs0_mask(idx)
+//                 when (mask_bit_active_element) {
+//                     io.vsd_out(0)(0) := Mux(io.vl_in >= vl_counter.U,                          
+//                                             reduction(cp_vs1, io.vs2_in(i)(j)), Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//                                             )    
+//                 }.elsewhen ()
+//             if io.vl_in === 0 || (i && j === 0) {
+//             }
+//             if io.mask_arith===0.B || io.vs0_in[i]===1.U {
+                
+//             }
+//             vl_counter = vl_counter + 1
+//         }
+//     }
     }.otherwise{
         var vl_counter1 = 1
         var counter2 = 0  
