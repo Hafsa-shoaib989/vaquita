@@ -209,7 +209,6 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): SInt = {
         vfrdiv          -> applyArithmeticOp(vs1_in, vs2_in, vfrdiv, vsd),
         vfmin           -> applyArithmeticOp(vs2_in, vs1_in, vfmin, vsd),
         vfmax           -> applyArithmeticOp(vs2_in, vs1_in, vfmax, vsd),
-        vfmv_vfmerge    -> (vs1_in),
         vfmacc          -> applyArithmeticOp(vs1_in, vs2_in, vfmacc, vsd),
         vfnmacc         -> applyArithmeticOp(vs1_in, vs2_in, vfnmacc, vsd),
         vfmsac          -> applyArithmeticOp(vs1_in, vs2_in, vfmsac, vsd),
@@ -372,6 +371,12 @@ def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
 }
 
 
+//MOVE & MERGE INSTRUCTIONS
+def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool): SInt = {
+    Mux(is_vfmv, vs1, Mux(mask_vs0, vs1, vs2))      // vfmv.v.f: always scalar; vfmerge.vfm: mask decides
+}
+
+
 
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
@@ -385,17 +390,29 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
     val isUnaryArithmeticOp = io.alu_ctrl_con === vfsqrt || io.alu_ctrl_con === vfclass
     val isSignInject = io.alu_ctrl === vfsgnj || io.alu_ctrl === vfsgnjn || io.alu_ctrl === vfsgnjx
-    val computed_result = Mux(isConversionOp,
-                              Conversion(vs2.asSInt),
-                              Mux(isUnaryArithmeticOp,
-                                  ArithmeticUnary(vs2.asSInt),
-                                  Mux(isSignInject,
-                                    signInject(vs1.asSInt, vs2.asSInt),
-                                    Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
-                              )
-                        )
-                    )       
-    vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+    
+    // Vfmerge/Vfmv instruction
+    val isVfmergeOrVfmv = io.alu_ctrl === vfmv_vfmerge
+    val vs2_is_v0 = vs2 === 0.S
+    val isVfmv = isVfmergeOrVfmv && io.mask_arith && vs2_is_v0
+    val isVfmerge = isVfmergeOrVfmv && !io.mask_arith 
+
+    when(isVfmergeOrVfmv && (isVfmv || isVfmerge)) {
+        vec_sew32_b := vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0)
+    }.otherwise {     
+        val computed_result = Mux(isConversionOp,
+                            Conversion(vs2.asSInt),
+                            Mux(isUnaryArithmeticOp,
+                                ArithmeticUnary(vs2.asSInt),
+                                Mux(isSignInject,
+                                signInject(vs1.asSInt, vs2.asSInt),
+                                Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
+                            )
+                    )
+                ) 
+        vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+    }
+
     vec_sew32_result := vec_sew32_b
     vec_sew32_result
 }
@@ -406,10 +423,11 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 val vl= 4
 val tail = 0.B
 val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl === vmflt || io.alu_ctrl === vmfle || io.alu_ctrl === vmfgt || io.alu_ctrl === vmfge
-val reduc_bit = io.alu_ctrl === vmfeq
+// val reduc_bit = io.alu_ctrl === vmfeq
 
 when(io.sew==="b010".U){ // sew = 32    
-    when(comp_bit === 0.B && reduc_bit === 0.B) {
+    // when(comp_bit === 0.B && reduc_bit === 0.B) {
+    when(comp_bit === 0.B) {
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
@@ -417,7 +435,7 @@ when(io.sew==="b010".U){ // sew = 32
             val mask = vs0_mask(idx)
 
             io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,                          
-                sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), Mux(io.alu_ctrl === vfmv_vfmerge, io.vs2_in(i)(j), io.vs3_in(i)(j)), mask),     //vfmerge instruction
+                sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask),     
                 Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
             )     
             vl_counter = vl_counter + 1
