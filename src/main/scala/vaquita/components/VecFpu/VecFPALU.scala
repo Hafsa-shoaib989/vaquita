@@ -440,33 +440,31 @@ val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl ===
 val reduc_bit = io.alu_ctrl === vfredosum
 
 when(io.sew==="b010".U){ // sew = 32    
-    // when(reduc_bit && !comp_bit) {
-    //     var sum = io.vs1_in(0)(0).asSInt
-    //     val found_active = Wire(Bool())
-    //     found_active := false.B
-    //     var element_count = 0  
+    when(reduc_bit && !comp_bit) {
+        var sum = io.vs1_in(0)(0).asSInt
+        var element_count = 0
+        val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
+        for (i <- 0 until 8) {
+            for (j <- 0 until config.count_lanes) {
+                val idx = i * config.count_lanes + j
+                val mask = vs0_mask(idx)
+                val inRange = io.vl_in > element_count.U
+                val active = inRange && (io.mask_arith || mask.asBool)
+                active_vec(idx) := active
+                val new_sum = reduction_add(sum, io.vs2_in(i)(j))
+                if (active == 1.B) {
+                    sum = new_sum
+                }
+                if (!(i == 0 && j == 0)) {
+                    io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                }
+                element_count = element_count + 1
+            }
+        }
+        val found_active = active_vec.reduce(_ || _) 
+        io.vsd_out(0)(0) := Mux(found_active, sum, io.vs1_in(0)(0))
 
-    //     for (i <- 0 until 8) {
-    //         for (j <- 0 until config.count_lanes) {
-    //             val idx      = (i * config.count_lanes) + j
-    //             val mask     = vs0_mask(idx)
-    //             val inRange  = io.vl_in > element_count.U  
-    //             val active   = inRange && (io.mask_arith || mask.asBool)
-    //             // found_active := found_active || active
-    //             val new_sum = reduction_add(sum, io.vs2_in(i)(j))
-    //             if (active == 1.B) {
-    //                 sum = new_sum
-    //             }
-    //             if (!(i == 0 && j == 0)) {
-    //                 io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-    //             }
-    //             element_count = element_count + 1
-    //         }
-    //     }
-    //     io.vsd_out(0)(0) := Mux(found_active, sum, io.vs1_in(0)(0))  
-
-    // }.elsewhen(!reduc_bit && !comp_bit) {
-    when(!reduc_bit && !comp_bit) {
+    }.elsewhen(!reduc_bit && !comp_bit) {
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
