@@ -379,13 +379,15 @@ def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool):
 
 //REDUCTION INSTRUCTIONS
 def reduction_add(sum: SInt, vs2_in: SInt): SInt = {
-    val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-    add.io.a := recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, sum.asUInt)
-    add.io.b := recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, sum.asUInt)
+    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    add.io.a := recA
+    add.io.b := recB
     add.io.subOp := false.B
     add.io.roundingMode := roundingMode
     add.io.detectTininess := detectTininess
-    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out.asSInt).asSInt
+    exception_reg := add.io.exceptionFlags
+    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
 }
 
 
@@ -438,30 +440,33 @@ val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl ===
 val reduc_bit = io.alu_ctrl === vfredosum
 
 when(io.sew==="b010".U){ // sew = 32    
-    when(reduc_bit && !comp_bit) {
-        var sum = io.vs1_in(0)(0)
-        var found_active = false.B
-        var element_count = 0  
+    // when(reduc_bit && !comp_bit) {
+    //     var sum = io.vs1_in(0)(0).asSInt
+    //     val found_active = Wire(Bool())
+    //     found_active := false.B
+    //     var element_count = 0  
 
-        for (i <- 0 until 8) {
-            for (j <- 0 until config.count_lanes) {
-                val idx      = (i * config.count_lanes) + j
-                val mask     = vs0_mask(idx)
-                val inRange  = io.vl_in > element_count.U  
-                val active   = inRange && (io.mask_arith || mask.asBool)
-                when(active) {
-                    found_active = true.B
-                    sum := reduction_add(sum, io.vs2_in(i)(j))
-                }
-                if (!(i == 0 && j == 0)) {
-                    io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-                }
-                element_count = element_count + 1
-            }
-        }
-        io.vsd_out(0)(0) := Mux(found_active, sum, io.vs1_in(0)(0))
-    
-    }.elsewhen(!reduc_bit && !comp_bit) {
+    //     for (i <- 0 until 8) {
+    //         for (j <- 0 until config.count_lanes) {
+    //             val idx      = (i * config.count_lanes) + j
+    //             val mask     = vs0_mask(idx)
+    //             val inRange  = io.vl_in > element_count.U  
+    //             val active   = inRange && (io.mask_arith || mask.asBool)
+    //             // found_active := found_active || active
+    //             val new_sum = reduction_add(sum, io.vs2_in(i)(j))
+    //             if (active == 1.B) {
+    //                 sum = new_sum
+    //             }
+    //             if (!(i == 0 && j == 0)) {
+    //                 io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+    //             }
+    //             element_count = element_count + 1
+    //         }
+    //     }
+    //     io.vsd_out(0)(0) := Mux(found_active, sum, io.vs1_in(0)(0))  
+
+    // }.elsewhen(!reduc_bit && !comp_bit) {
+    when(!reduc_bit && !comp_bit) {
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
@@ -475,6 +480,7 @@ when(io.sew==="b010".U){ // sew = 32
             vl_counter = vl_counter + 1
         }
     }
+
     }.otherwise{     //comp_bit === 1.B
         var vl_counter1 = 1
         var counter2 = 0  
