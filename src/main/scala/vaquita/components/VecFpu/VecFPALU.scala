@@ -390,6 +390,24 @@ def reduction_add(sum: SInt, vs2_in: SInt): SInt = {
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
 }
 
+//  Reduction tree over all active elements (vfredusum)
+def tree_reduce(elements: Vec[SInt], count: Int): SInt = {
+    if (count == 0) {              // If no active element
+        io.vs1_in(0)(0)
+    } else if (count == 1) {       // If only one active element
+        reduction_add(io.vs1_in(0)(0), elements(0))
+    } else {                       // Building the next level by summing pairs
+        val next_level = Wire(Vec((count+1)/2, SInt(config.XLEN.W)))
+        for (k <- 0 until count/2) {
+            next_level(k) := reduction_add(elements(2*k), elements(2*k+1))
+        }
+        if (count % 2 == 1) {      // If we have an odd count
+            next_level(count/2) := elements(count-1)
+        }
+        tree_reduce(next_level, (count+1)/2)
+    }
+}
+
 
 
 // for sew's
@@ -437,23 +455,37 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 val vl= 4
 val tail = 0.B
 val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl === vmflt || io.alu_ctrl === vmfle || io.alu_ctrl === vmfgt || io.alu_ctrl === vmfge
-val reduc_bit = io.alu_ctrl === vfredosum
+val reduc_osum_bit = io.alu_ctrl === vfredosum
+val reduc_usum_bit = io.alu_ctrl === vfredusum
+val reduc_bit = reduc_osum_bit || reduc_usum_bit
 
 when(io.sew==="b010".U){ // sew = 32    
-    when(reduc_bit && !comp_bit) {
+    when(reduc_bit && !comp_bit) {    //reduction instructions
+        //vfredosum
         var sum = io.vs1_in(0)(0).asSInt
         var element_count = 0
         val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
+        
+        //vfredusum
+        val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
+        for (i <- 0 until (8 * config.count_lanes)) {
+            temp_elements(i) := 0.S
+        }
+        var temp_idx = 0
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
                 val idx = i * config.count_lanes + j
                 val mask = vs0_mask(idx)
                 val inRange = io.vl_in > element_count.U
                 val active = inRange && (io.mask_arith || mask.asBool)
-                active_vec(idx) := active
-                val new_sum = reduction_add(sum, io.vs2_in(i)(j))
+                active_vec(idx) := active 
                 if (active == 1.B) {
-                    sum = new_sum
+                    if (reduc_usum_bit == 1.B) {
+                        temp_elements(temp_idx) := io.vs2_in(i)(j)
+                        temp_idx += 1
+                    } else if (reduc_osum_bit == 1.B) {
+                        sum = reduction_add(sum, io.vs2_in(i)(j))
+                    }
                 }
                 if (!(i == 0 && j == 0)) {
                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
@@ -462,9 +494,10 @@ when(io.sew==="b010".U){ // sew = 32
             }
         }
         val found_active = active_vec.reduce(_ || _) 
-        io.vsd_out(0)(0) := Mux(found_active, sum, io.vs1_in(0)(0))
+        val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
+        io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
 
-    }.elsewhen(!reduc_bit && !comp_bit) {
+    }.elsewhen(!reduc_bit && !comp_bit) {    //Arithmetic instructions
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
@@ -506,3 +539,4 @@ when(io.sew==="b010".U){ // sew = 32
 }  
 
 }
+

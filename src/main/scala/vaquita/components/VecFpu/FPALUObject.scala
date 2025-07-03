@@ -42,4 +42,5 @@ object FPALUObj{
     val vfsgnjn            = 9.U(6.W)
     val vfsgnjx            = 10.U(6.W)
     val vfredosum          = 3.U(6.W)   
+    val vfredusum          = 1.U(6.W)  
 }
