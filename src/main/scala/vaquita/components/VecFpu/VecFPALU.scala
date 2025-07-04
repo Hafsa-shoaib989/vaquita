@@ -275,10 +275,10 @@ def comp_elem_fn(sew:Int,counter:UInt):SInt={
     cat_element
 }
 
-def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
+def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-    cmp.io.a := vs2_in.asUInt
-    cmp.io.b := vs1_in.asUInt
+    cmp.io.a := vs1_in.asUInt
+    cmp.io.b := vs2_in.asUInt
 
     // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
@@ -291,8 +291,8 @@ def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
     } 
 
     val result = WireDefault(false.B)
-    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
-    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
+    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
+    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
     val anyNaN = rawA.isNaN || rawB.isNaN
 
     switch(opType) {
@@ -308,14 +308,14 @@ def applyComparisonOp(vs2_in: SInt, vs1_in: SInt, opType: UInt): Bool = {
     result
 }
 
-def Comparison(vs2_in: SInt, vs1_in: SInt): Bool = {
+def Comparison(vs1_in: SInt, vs2_in: SInt): Bool = {
     MuxLookup(io.alu_ctrl, false.B, Seq(
-        vmfeq -> applyComparisonOp(vs2_in, vs1_in, vmfeq),
-        vmfne -> applyComparisonOp(vs2_in, vs1_in, vmfne),
-        vmflt -> applyComparisonOp(vs2_in, vs1_in, vmflt),
-        vmfle -> applyComparisonOp(vs2_in, vs1_in, vmfle),
-        vmfgt -> applyComparisonOp(vs2_in, vs1_in, vmfgt),
-        vmfge -> applyComparisonOp(vs2_in, vs1_in, vmfge)
+        vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
+        vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
+        vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
+        vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
+        vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
+        vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
     ))
 }
 
@@ -408,6 +408,39 @@ def tree_reduce(elements: Vec[SInt], count: Int): SInt = {
     }
 }
 
+val reduc_max_bit = io.alu_ctrl === vfredmax
+val reduc_min_bit = io.alu_ctrl === vfredmin
+val reduc_op_bit = io.alu_ctrl === vfredmax || io.alu_ctrl === vfredmin
+
+def fp_maxmin_reduc(a: SInt, b: SInt): SInt = {
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, a.asUInt)
+    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, b.asUInt)
+    val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+    cmp.io.a := recA
+    cmp.io.b := recB
+    cmp.io.signaling := true.B
+    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
+    // If a is NaN, return a (stays NaN); if b is NaN, return b; else max(a, b)
+    // If a is NaN, propagate it; else if b is NaN, propagate it; else pick the max
+    val result = WireDefault(a) // Initialize with 'a' by default (can be any default)
+
+    when (reduc_max_bit) {
+        result := Mux(rawA.isNaN, a,
+                  Mux(rawB.isNaN, b,
+                      Mux(cmp.io.gt, a, b)
+                  )
+              )
+    } .elsewhen (reduc_min_bit) {
+        result := Mux(rawA.isNaN, a,
+                  Mux(rawB.isNaN, b,
+                      Mux(cmp.io.lt, a, b)
+                  )
+              )
+    }
+
+    result
+}
 
 
 // for sew's
@@ -450,7 +483,6 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
 }
 
 
-
 // calling main function 
 val vl= 4
 val tail = 0.B
@@ -460,7 +492,7 @@ val reduc_usum_bit = io.alu_ctrl === vfredusum
 val reduc_bit = reduc_osum_bit || reduc_usum_bit
 
 when(io.sew==="b010".U){ // sew = 32    
-    when(reduc_bit && !comp_bit) {    //reduction instructions
+    when(reduc_bit && reduc_op_bit && !comp_bit) {    //reduction instructions
         //vfredosum
         var sum = io.vs1_in(0)(0).asSInt
         var element_count = 0
@@ -485,8 +517,10 @@ when(io.sew==="b010".U){ // sew = 32
                         temp_idx += 1
                     } else if (reduc_osum_bit == 1.B) {
                         sum = reduction_add(sum, io.vs2_in(i)(j))
-                    }
+                    } else if (reduc_bit == 1.B) {
+                        sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
                 }
+                }   
                 if (!(i == 0 && j == 0)) {
                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
                 }
