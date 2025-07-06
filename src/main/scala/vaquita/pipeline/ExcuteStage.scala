@@ -118,6 +118,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       vec_fp_alu_module.io.sew          := 0.U
       vec_fp_alu_module.io.alu_ctrl     := 0.U
       vec_fp_alu_module.io.alu_ctrl_con := 0.U
+      vec_fp_alu_module.io.alu_ctrl_scalarM := 0.U
       vec_fp_alu_module.io.mask_arith   := 0.U
     }
 
