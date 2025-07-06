@@ -46,6 +46,7 @@ class VaquitaTop extends Module {
     EX.ex_fpu_signal_in := DE.de_io.de_fpu_signal
     EX.ex_fp_alu_op_in := DE.de_io.fp_alu_op_out
     EX.ex_fp_conv_alu_op_in := DE.de_io.fp_conv_alu_op_out
+    EX.ex_fp_scalarM_alu_op_in := DE.de_io.fp_scalarM_alu_op_out
 
     // ************forwording unit***********************
     DE.de_io.vl_rs1_in := RegNext(EX.vl_rs1_out.asUInt)

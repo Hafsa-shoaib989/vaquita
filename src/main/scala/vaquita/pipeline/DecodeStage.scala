@@ -25,6 +25,7 @@ class DecodeStageIO(implicit val config: VaquitaConfig) extends Bundle {
     val lmul_out        = Output(UInt(32.W))
     val fp_alu_op_out   = Output(UInt(6.W))
     val fp_conv_alu_op_out = Output(UInt(11.W))
+    val fp_scalarM_alu_op_out = Output(UInt(11.W))
     val de_fpu_signal   = Output(Bool())
 }
 
@@ -83,12 +84,14 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     /** ALU Operation */
     when(config.F.B && fpu) { // FP
         io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))
+        io.de_io.fp_scalarM_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(24, 20))
         io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)
         io.de_io.alu_op_out :=  0.U
     }.otherwise {
         io.de_io.alu_op_out := io.de_io.instr(31, 26)
         io.de_io.fp_alu_op_out := 0.U
         io.de_io.fp_conv_alu_op_out := 0.U
+        io.de_io.fp_scalarM_alu_op_out := 0.U
     }
 
   /**  selects vs1_data_out based on operand_type(immediate , rs1, vector) */

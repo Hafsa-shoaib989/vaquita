@@ -24,6 +24,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       val hazard_rs1 = Input(UInt(32.W))
       val ex_fp_alu_op_in = Input(UInt(6.W))
       val ex_fp_conv_alu_op_in = Input(UInt(11.W))
+      val ex_fp_scalarM_alu_op_in = Input(UInt(11.W))
       val ex_fpu_signal_in = Input(Bool())
       
       val ex_instr_out    = Output(UInt(32.W))
@@ -51,6 +52,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     val fpu_sig = RegNext(io.ex_fpu_signal_in)
     val ex_fp_alu_op_out = RegNext(io.ex_fp_alu_op_in)
     val ex_fp_conv_alu_op_out = RegNext(io.ex_fp_conv_alu_op_in)
+    val ex_fp_scalarM_alu_op_out = RegNext(io.ex_fp_scalarM_alu_op_in)
 
     when (config.F.B && fpu_sig) {
       vec_fp_alu_module.io.vl_in := vsetvli_module.io.vl
@@ -104,6 +106,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       vec_fp_alu_module.io.sew          := next_sew
       vec_fp_alu_module.io.alu_ctrl     := ex_fp_alu_op_out
       vec_fp_alu_module.io.alu_ctrl_con := ex_fp_conv_alu_op_out
+      vec_fp_alu_module.io.alu_ctrl_scalarM := ex_fp_scalarM_alu_op_out
       vec_fp_alu_module.io.mask_arith   := io.ex_instr_out(25)
       vec_alu_module.io.sew        := 0.U
       vec_alu_module.io.alu_opcode := 0.U

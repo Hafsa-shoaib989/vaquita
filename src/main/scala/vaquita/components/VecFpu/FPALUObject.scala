@@ -45,4 +45,8 @@ object FPALUObj{
     val vfredusum          = 1.U(6.W)  
     val vfredmax           = 7.U(6.W)  
     val vfredmin           = 5.U(6.W)  
+    // VWFUNARY0
+    val vfmv_f_s           = Cat("b010000".U(6.W), "b00000".U(5.W))
+    // VRFUNARY0
+    val vfmv_s_f           = Cat("b010000".U(6.W), "b00000".U(5.W))
 }

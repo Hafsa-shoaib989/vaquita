@@ -16,6 +16,7 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val vl_in        = Input(UInt(32.W))  // on how much elements i want to work ..body elements 
         val alu_ctrl     = Input(UInt(6.W))   // for arithmethic 
         val alu_ctrl_con = Input(UInt(11.W))  // for conversion 
+        val alu_ctrl_scalarM = Input(UInt(11.W))  // for scalar move 
         val mask_arith   = Input(Bool())      // want to apply masking or not?
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         // val exceptions   = Output(UInt(5.W))
@@ -490,9 +491,35 @@ val comp_bit = io.alu_ctrl === vmfeq || io.alu_ctrl === vmfne || io.alu_ctrl ===
 val reduc_osum_bit = io.alu_ctrl === vfredosum
 val reduc_usum_bit = io.alu_ctrl === vfredusum
 val reduc_bit = reduc_osum_bit || reduc_usum_bit
+val sm_f_s = io.alu_ctrl_con === vfmv_f_s 
+val sm_s_f = io.alu_ctrl_scalarM === vfmv_s_f
+val scalar_move_bit = sm_f_s || sm_s_f
 
-when(io.sew==="b010".U){ // sew = 32    
-    when(reduc_bit && reduc_op_bit && !comp_bit) {    //reduction instructions
+when(io.sew==="b010".U){ // sew = 32   
+    when (scalar_move_bit) {                //scalar move instructions
+        if (sm_f_s == 1.B) {
+            // vfmv.f.s rd, vs2
+            // Always copies element 0, even if vl=0 or vstart>=vl
+            io.vsd_out(0)(0) := io.vs2_in(0)(0)
+        } else if (sm_s_f == 1.B) {
+            // vfmv.s.f vd, rs1
+            // Only update element 0 if vstart < vl and vl > 0
+            // (If vstart >= vl or vl == 0, do nothing)
+            // var vl_counter = 1
+            for (i <- 0 until 8) {
+                for (j <- 0 until config.count_lanes) {
+                    if (i == 0 && j == 0) {
+                        io.vsd_out(0)(0) := Mux(io.vl_in >= 0.U, io.vs1_in(0)(0), 
+                                                Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+                    } else {
+                        io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                    }
+                    // vl_counter = vl_counter + 1
+                }
+            }
+        }
+
+    }.elsewhen(reduc_bit && reduc_op_bit) {    //reduction instructions
         //vfredosum
         var sum = io.vs1_in(0)(0).asSInt
         var element_count = 0
@@ -519,7 +546,7 @@ when(io.sew==="b010".U){ // sew = 32
                         sum = reduction_add(sum, io.vs2_in(i)(j))
                     } else if (reduc_bit == 1.B) {
                         sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
-                }
+                    }
                 }   
                 if (!(i == 0 && j == 0)) {
                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
@@ -531,7 +558,7 @@ when(io.sew==="b010".U){ // sew = 32
         val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
         io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
 
-    }.elsewhen(!reduc_bit && !comp_bit) {    //Arithmetic instructions
+    }.elsewhen(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
