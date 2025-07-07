@@ -495,52 +495,30 @@ val sm_f_s = io.alu_ctrl_con === vfmv_f_s
 val sm_s_f = io.alu_ctrl_scalarM === vfmv_s_f
 val scalar_move_bit = sm_f_s || sm_s_f
 
-
 for (i <- 0 until 8) {
-  for (j <- 0 until config.count_lanes) {
-    io.vsd_out(i)(j) := 0.S  // safe default 
-  }
+    for (j <- 0 until config.count_lanes) {
+        io.vsd_out(i)(j) := 0.S  // safe default 
+    }
 }
 
 when(io.sew==="b010".U){ // sew = 32   
     when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
-        // vfmv.f.s rd, vs2
-        // Always copies element 0, even if vl=0 or vstart>=vl
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
-                // if (i == 0 && j == 0) {
-                //     if (sm_f_s == 1.B) {
-                //         io.vsd_out(0)(0) := io.vs2_in(0)(0)
-                //     } else if (sm_s_f == 1.B) {
-                //         io.vsd_out(0)(0) := Mux(io.vl_in >= 0.U, io.vs1_in(0)(0), 
-                //                             Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-                //     }
-                // } else {
-                //     // vfmv.s.f vd, rs1
-                //     // Only update element 0 if vstart < vl and vl > 0
-                //     // (If vstart >= vl or vl == 0, do nothing)
-                //     // var vl_counter = 1
-                //     if (sm_f_s == 1.B) {
-                //         io.vsd_out(i)(j) := 0.S
-                //     } else if (sm_s_f == 1.B) {
-                //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-                //     }
-                    
-                // }
-                // // vl_counter = vl_counter + 1
-                if (sm_f_s == 1.B) {
-                    io.vsd_out(i)(j) := 0.S 
-                } else if (sm_s_f == 1.B) {
-                    io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                if (i == 0 && j == 0) {
+                    if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+                        io.vsd_out(0)(0) := io.vs2_in(0)(0)
+                    } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+                        io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+                    }
+                }else {
+                    if (sm_f_s == 1.B) {
+                        io.vsd_out(i)(j) := 0.S 
+                    } else if (sm_s_f == 1.B) {
+                        io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                    }
                 }
-            }
-        }
-        // Then set the actual value for (0,0)
-        if (sm_f_s == 1.B) {
-            io.vsd_out(0)(0) := io.vs2_in(0)(0)
-        } else if (sm_s_f == 1.B) {
-            io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-        }
+        }   }
 
     }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
         //vfredosum
@@ -623,4 +601,3 @@ when(io.sew==="b010".U){ // sew = 32
 }  
 
 }
-

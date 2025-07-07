@@ -52,7 +52,7 @@ class VaquitaTop extends Module {
     DE.de_io.vl_rs1_in := RegNext(EX.vl_rs1_out.asUInt)
     EX.ex_lmul_in := DE.de_io.lmul_out
     
-    io.vl_rs1_out := EX.vl_rs1_out
+    io.vl_rs1_out := Mux((io.instr(14,12) === "b111".U) & (io.instr(6,0) === "b1010111".U), EX.vl_rs1_out.asUInt, DE.de_io.de_reg_rd.asUInt) //func3, opcode
     EX.hazard_rs1 := io.hazard_rs1_data_in
     FU.mem_vd := MEM.mem_instr_out(11,7)
     FU.wb_vd := WB.wb_instr_out(11,7)

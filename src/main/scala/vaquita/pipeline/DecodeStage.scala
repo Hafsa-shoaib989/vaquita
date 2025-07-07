@@ -27,6 +27,7 @@ class DecodeStageIO(implicit val config: VaquitaConfig) extends Bundle {
     val fp_conv_alu_op_out = Output(UInt(11.W))
     val fp_scalarM_alu_op_out = Output(UInt(11.W))
     val de_fpu_signal   = Output(Bool())
+    val de_reg_rd       = Output(SInt(32.W))
 }
 
 
@@ -51,6 +52,8 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     val vcsr_module    = Module(new VCSR)
 
     vec_cu_module.io.instr := io.de_io.instr
+
+    io.de_io.de_reg_rd := io.de_vec_io.vsd_data_in(0)(0)
 
     val fpu = vec_cu_module.io.is_float  // FP Signal
     
