@@ -16,7 +16,7 @@ class VaquitaTop extends Module {
         val vl_rs1_out = Output(UInt(32.W))
         
     })
-    implicit val vec_config = VaquitaConfig (256,32,32,8,true)
+    implicit val vec_config = VaquitaConfig (32,32,32,1,true)
 
     val de_stage = Module(new DecodeStage()(vec_config))
     val DE        = de_stage.io
@@ -30,6 +30,11 @@ class VaquitaTop extends Module {
     val WB        = wb_stage.io
     val fu_module = Module(new ForwardingUnit)
     val FU        = fu_module.io
+
+    val opcode = io.instr(6,0)
+    dontTouch(opcode)
+    val func3 = io.instr(14,12)
+    dontTouch(func3)
 
     MemFetch.mem_vs3_data <> MEM.vs3_data_out
     MemFetch.write_en := MEM.mem_stage_write_en

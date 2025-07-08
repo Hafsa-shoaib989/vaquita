@@ -3,10 +3,8 @@ package vaquita.pipeline
 import chisel3._
 import chisel3.util._
 import vaquita.components.{VecControlUnit, VecRegFile, VCSR}
-// import vaquita.components.VecFpu.{VecFPRegisters}
 import vaquita.configparameter.VaquitaConfig
 import vaquita.util.SewSelector
-// import vaquita.components.VecFpu.VecFPParameters
 import vaquita.components._
 
 /** IO Bundle for DecodeStage */
@@ -56,6 +54,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     io.de_io.de_reg_rd := io.de_vec_io.vsd_data_in(0)(0)
 
     val fpu = vec_cu_module.io.is_float  // FP Signal
+    dontTouch(fpu)
     
     /** Vector Register File Wiring */
     vec_reg_module.io.vs1_addr         := io.de_io.instr(19, 15)
@@ -84,12 +83,29 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     io.de_io.de_reg_write := vec_cu_module.io.reg_write
     io.de_io.de_fpu_signal:= fpu
 
-    /** ALU Operation */
-    when(config.F.B && fpu) { // FP
-        io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))
-        io.de_io.fp_scalarM_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(24, 20))
-        io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)
-        io.de_io.alu_op_out :=  0.U
+
+ /** ALU Operation */
+    when(fpu) { // FP
+        when(io.de_io.instr(31, 26) === "b010010".U) {
+            io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))  // Conversion operation
+        }.otherwise {
+            io.de_io.fp_conv_alu_op_out := 0.U  // Reset if not conversion
+        }
+        
+        when(io.de_io.instr(31, 26) === "b010000".U && io.de_io.instr(24, 20) === "b00000".U) {
+            io.de_io.fp_scalarM_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(24, 20))  // Scalar move operation
+        }.otherwise {
+            io.de_io.fp_scalarM_alu_op_out := 0.U  // Reset if not scalar move
+        }
+
+        when(io.de_io.instr(31, 26) =/= "b010010".U && io.de_io.instr(31, 26) =/= "b010000".U) {
+            io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)  // Set for general floating-point operations
+        }.otherwise {
+            io.de_io.fp_alu_op_out := 0.U  // Reset if not a general floating-point operation
+        }
+
+        io.de_io.alu_op_out := 0.U 
+
     }.otherwise {
         io.de_io.alu_op_out := io.de_io.instr(31, 26)
         io.de_io.fp_alu_op_out := 0.U
@@ -97,6 +113,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
         io.de_io.fp_scalarM_alu_op_out := 0.U
     }
 
+    
   /**  selects vs1_data_out based on operand_type(immediate , rs1, vector) */
     val sew_selector = new SewSelector()
     for (i <- 0 until 8) {

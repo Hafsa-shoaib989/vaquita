@@ -59,6 +59,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       vec_alu_module.io.vl_in := 0.U
     }.otherwise {
       vec_alu_module.io.vl_in   := vsetvli_module.io.vl
+      // vec_alu_module.io.vl_in := 4.U
       vec_fp_alu_module.io.vl_in := 0.U
     }
 
@@ -75,26 +76,31 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
           }
     }}
 
-    vec_fp_alu_module.io.vs2_in <> io.ex_vs2_data_in
-    vec_fp_alu_module.io.vs3_in <> io.ex_vs3_data_in
-    vec_fp_alu_module.io.vs0_in <> io.ex_vs0_data_in
-
-    vec_alu_module.io.vs2_in <> io.ex_vs2_data_in
-    vec_alu_module.io.vs3_in <> io.ex_vs3_data_in
-    vec_alu_module.io.vs0_in <> io.ex_vs0_data_in
-
     when (config.F.B && fpu_sig) {
-      io.vsd_data_out          <> vec_fp_alu_module.io.vsd_out
+      vec_fp_alu_module.io.vs2_in  <> io.ex_vs2_data_in
+      vec_fp_alu_module.io.vs3_in  <> io.ex_vs3_data_in
+      vec_fp_alu_module.io.vs0_in  <> io.ex_vs0_data_in
+      io.vsd_data_out              <> vec_fp_alu_module.io.vsd_out
+      vec_alu_module.io.vs2_in     <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
+      vec_alu_module.io.vs3_in     <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
+      vec_alu_module.io.vs0_in     <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
       // vec_fp_alu_module.io.exceptions := 0.U(5.W)
     }.otherwise {
-      io.vsd_data_out          <> vec_alu_module.io.vsd_out
+      vec_alu_module.io.vs2_in    <> io.ex_vs2_data_in
+      vec_alu_module.io.vs3_in    <> io.ex_vs3_data_in
+      vec_alu_module.io.vs0_in    <> io.ex_vs0_data_in
+      io.vsd_data_out             <> vec_alu_module.io.vsd_out
+      vec_fp_alu_module.io.vs2_in <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
+      vec_fp_alu_module.io.vs3_in <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
+      vec_fp_alu_module.io.vs0_in <> WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
+
     }
 
 
     io.ex_vs1_data_out_vs3   <> io.ex_vs3_data_in
 
     io.ex_write_en_out           := RegNext(io.ex_write_en_in)
-    io.ex_read_en_out            :=  RegNext(io.ex_read_en_in)
+    io.ex_read_en_out            := RegNext(io.ex_read_en_in)
     io.ex_rs1_data_out           := RegNext(io.ex_rs1_data_in)
     io.ex_reg_write_out          := RegNext(io.ex_reg_write_in)
     vsetvli_module.io.instr_in   := RegNext(io.ex_instr_in)

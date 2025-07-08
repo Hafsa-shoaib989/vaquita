@@ -31,35 +31,36 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
         io.mem_to_reg       := memToReg
         io.vec_config       := vecConfig
         io.store_vs3_to_mem := storeVs3ToMem
-        io.is_float         := config.F.B  // Only enable F operations, if F parameter is true
+        io.is_float         := is_float  // Only enable F operations, if F parameter is true
     }
 
     // Default values
     setValues(false.B, "b11".U, false.B, false.B, false.B, false.B, false.B, false.B) 
 
     // Integer vector instructions
-    switch(io.instr(6,0)) {
-        is("b1010111".U) {   
-        switch(io.instr(14,12)) {
-            is("b111".U) { setValues(false.B, "b11".U, false.B, false.B, false.B, true.B, false.B, false.B) }//vec config
-            is("b000".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to vec
-            is("b100".U) { setValues(false.B, "b01".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to scalar
-            is("b011".U) { setValues(false.B, "b10".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to immediate
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b000".U || io.instr(14,12) === "b011".U || io.instr(14,12) === "b100".U)) {
+        switch(io.instr(6,0)) {
+            is("b1010111".U) {   
+            switch(io.instr(14,12)) {
+                is("b111".U) { setValues(false.B, "b11".U, false.B, false.B, false.B, true.B, false.B, false.B) }//vec config
+                is("b000".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to vec
+                is("b100".U) { setValues(false.B, "b01".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to scalar
+                is("b011".U) { setValues(false.B, "b10".U, false.B, true.B, false.B, false.B, false.B, false.B) }//vec to immediate
+            }
+            }
+            is("b0100111".U) { setValues(true.B,  "b00".U, false.B, false.B, false.B, false.B, true.B, false.B) } //vec store
+            is("b0000111".U) { setValues(false.B, "b11".U, true.B, true.B,   true.B, false.B, false.B, false.B) } // vec load
         }
-        }
-        is("b0100111".U) { setValues(true.B,  "b00".U, false.B, false.B, false.B, false.B, true.B, false.B) } //vec store
-        is("b0000111".U) { setValues(false.B, "b11".U, true.B, true.B,   true.B, false.B, false.B, false.B) } // vec load
     }
-    
 
     // Floating point vector instructions
-    when(config.F.B) { 
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U)) {
       switch(io.instr(6,0)) {  
-        is("b010010".U) {  //opcode
-        switch(io.instr(14,12)) {  //func3
-            is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) } //conversion (vec to vec)
-        }
-        }
+        // is("b010010".U) {  //opcode
+        // switch(io.instr(14,12)) {  //func3
+        //     is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) } //conversion (vec to vec)
+        // }
+        // }
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
             is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to vec
