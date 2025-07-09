@@ -34,26 +34,26 @@ int main(int argc, char **argv, char **env) {
 
         // Apply the test vectors (poke signals)
         // Cycle 1
-        if (sim_time == 1) {
+        if (sim_time == 2) {
             top->io_instr = 0x0222b1d7;  // Set instruction
             top->io_rs1_data = 5;        // Set rs1_data
             top->io_hazard_rs1_data_in = 0;  // Set hazard input
         }
 
         // Cycle 2
-        if (sim_time == 2) {
+        if (sim_time == 4) {
             top->io_instr = 0x0240b2d7;
             top->io_rs1_data = 0;
         }
 
         // Cycle 3
-        if (sim_time == 3) {
+        if (sim_time == 8) {
             top->io_instr = 0x02328457;
             top->io_rs1_data = 0;
         }
 
         // Cycle 4
-        if (sim_time == 4) {
+        if (sim_time == 16) {
             top->io_instr = 0x4a8110d7;
             top->io_rs1_data = 0;
         }

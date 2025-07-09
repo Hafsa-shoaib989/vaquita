@@ -2,6 +2,7 @@ package vaquita
 import chisel3._
 import chisel3.util._
 import chisel3.stage.ChiselStage
+import vaquita.components.{VsetModule}
 import vaquita.pipeline.{DecodeStage,ExcuteStage,MemStage,WBStage}
 import vaquita.components.{VecMemFetch,ForwardingUnit,MemRequestIO,MemResponseIO}
 import vaquita.configparameter.VaquitaConfig

@@ -26,7 +26,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
       val ex_fp_conv_alu_op_in = Input(UInt(11.W))
       val ex_fp_scalarM_alu_op_in = Input(UInt(11.W))
       val ex_fpu_signal_in = Input(Bool())
-      
+
       val ex_instr_out    = Output(UInt(32.W))
       val ex_reg_write_out = Output(Bool())
       val ex_rs1_data_out  = Output(SInt(32.W))
@@ -54,14 +54,8 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     val ex_fp_conv_alu_op_out = RegNext(io.ex_fp_conv_alu_op_in)
     val ex_fp_scalarM_alu_op_out = RegNext(io.ex_fp_scalarM_alu_op_in)
 
-    when (config.F.B && fpu_sig) {
-      vec_fp_alu_module.io.vl_in := vsetvli_module.io.vl
-      vec_alu_module.io.vl_in := 0.U
-    }.otherwise {
-      vec_alu_module.io.vl_in   := vsetvli_module.io.vl
-      // vec_alu_module.io.vl_in := 4.U
-      vec_fp_alu_module.io.vl_in := 0.U
-    }
+    vec_alu_module.io.vl_in := vsetvli_module.io.vl
+    vec_fp_alu_module.io.vl_in := vsetvli_module.io.vl
 
     val sew_selector = new SewSelector()
     for (i <- 0 to 7) { // for grouping = 8
@@ -105,7 +99,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     io.ex_reg_write_out          := RegNext(io.ex_reg_write_in)
     vsetvli_module.io.instr_in   := RegNext(io.ex_instr_in)
     io.ex_lmul_out               := RegNext(io.ex_lmul_in)
-    vsetvli_module.io.rs1_in     := io.hazard_rs1
+    vsetvli_module.io.rs1_in     := RegNext(io.hazard_rs1)
     io.vl_rs1_out                := vsetvli_module.io.vl
 
     when (config.F.B && fpu_sig) {

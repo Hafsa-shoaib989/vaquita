@@ -443,7 +443,6 @@ def fp_maxmin_reduc(a: SInt, b: SInt): SInt = {
     result
 }
 
-
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool):SInt={
     val vsetvli_mask = 0.B

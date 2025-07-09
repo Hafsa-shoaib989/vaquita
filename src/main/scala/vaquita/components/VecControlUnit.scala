@@ -38,7 +38,7 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     setValues(false.B, "b11".U, false.B, false.B, false.B, false.B, false.B, false.B) 
 
     // Integer vector instructions
-    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b000".U || io.instr(14,12) === "b011".U || io.instr(14,12) === "b100".U)) {
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b111".U || io.instr(14,12) === "b000".U || io.instr(14,12) === "b011".U || io.instr(14,12) === "b100".U)) {
         switch(io.instr(6,0)) {
             is("b1010111".U) {   
             switch(io.instr(14,12)) {
@@ -56,11 +56,6 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     // Floating point vector instructions
     when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U)) {
       switch(io.instr(6,0)) {  
-        // is("b010010".U) {  //opcode
-        // switch(io.instr(14,12)) {  //func3
-        //     is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) } //conversion (vec to vec)
-        // }
-        // }
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
             is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to vec
