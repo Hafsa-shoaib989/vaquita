@@ -15,7 +15,8 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
         val vtype = Input(UInt(32.W))
         val lmul = Input(UInt(3.W))
         val sew = Input(UInt(3.W))
-        val vl = Input(SInt(32.W))
+        val vl = Input(SInt(32.W))merl1234
+        
         val vs1_data = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val vs2_data = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val vs3_data = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
