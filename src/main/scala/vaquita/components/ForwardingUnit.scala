@@ -21,8 +21,8 @@ class ForwardingUnit extends Module {
     val func3        = io.instr_in(14,12)
 
     def forwardLogic(src: UInt, mem_vd: UInt, wb_vd: UInt, mem_regWrite: Bool, wb_regWrite: Bool, func3: UInt = 0.U, checkFunc3: Bool = false.B): UInt = {
-        Mux((src === mem_vd && (!checkFunc3 || func3 === 0.U)) && mem_vd =/= 0.U && mem_regWrite, 1.U,
-           Mux((src === wb_vd && (!checkFunc3 || func3 === 0.U)) && wb_vd =/= 0.U && wb_regWrite, 2.U, 0.U)
+        Mux((src === mem_vd && (!checkFunc3 || func3 === 0.U || func3 === 1.U)) && mem_vd =/= 0.U && mem_regWrite, 1.U,
+           Mux((src === wb_vd && (!checkFunc3 || func3 === 0.U || func3 === 1.U)) && wb_vd =/= 0.U && wb_regWrite, 2.U, 0.U)
       )
     }
 
@@ -32,3 +32,4 @@ class ForwardingUnit extends Module {
     io.forward_d := forwardLogic(0.U, io.mem_vd, io.wb_vd, io.mem_regWrite, io.wb_regWrite)
 
 }
+
