@@ -123,7 +123,6 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
             0.S,
             Array(
             (0.U) -> vec_reg_module.io.vs1_data(i)(j),
-            // (0.U) -> Mux(config.F && fpu, vec_fp_reg_module.io.vs1_data(i)(j), vec_reg_module.io.vs1_data(i)(j)),  // If FPU is enabled, use floating-point data, else use scalar data
             (1.U) -> io.de_io.rs1_data,
             (2.U) -> sew_selector.sew_selector_with_element(vcsr_module.io.sew, io.de_io.instr(19, 15).asSInt),
             (3.U) -> 0.S

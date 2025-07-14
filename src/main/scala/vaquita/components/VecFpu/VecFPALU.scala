@@ -22,6 +22,9 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         // val exceptions   = Output(UInt(5.W))
     }) 
 
+// dontTouch(io.vs1_in)
+// dontTouch(io.vs2_in)
+
 val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)  // convert into one array (string), for making masking easy.
 
 val exception_reg = RegInit(0.U(5.W))
@@ -305,8 +308,8 @@ when(io.sew==="b010".U){ // sew = 32
     var vl_counter = 1
     for (i <- 0 until 8) {
     for (j <- 0 until config.count_lanes) {
-        val idx = (i * config.count_lanes) + j
-        val mask = vs0_mask(idx)
+        // val idx = (i * config.count_lanes) + j
+        // val mask = vs0_mask(idx)
         io.vsd_out(i)(j) :=0.S 
         vl_counter = vl_counter + 1
     }
