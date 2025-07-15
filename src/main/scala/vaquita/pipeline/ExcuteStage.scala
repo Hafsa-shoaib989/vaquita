@@ -64,14 +64,14 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
               // vec_fp_alu_module.io.vs1_in(i)(j) := io.ex_vs1_data_in(i)(j)
               // vec_fp_alu_module.io.vs1_in(i)(j) := io.hazard_rs1.asSInt
               // for integrating with nrv.....put this:
-              vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew,io.hazard_rs1.asSInt),io.ex_vs1_data_in(i)(j))
+              vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew,RegNext(io.hazard_rs1.asSInt)),io.ex_vs1_data_in(i)(j))
               
               // vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_in(6,0)==="b1010111".U && io.ex_instr_in(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew,io.hazard_rs1.asSInt),io.ex_vs1_data_in(i)(j))
               vec_alu_module.io.vs1_in(i)(j) := 0.S
               
           }.otherwise {
               // for integrating with nrv.....put this:
-              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j)) 
+              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, RegNext(io.hazard_rs1.asSInt)), io.ex_vs1_data_in(i)(j)) 
               
               // vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_in(6, 0) === "b1010111".U && io.ex_instr_in(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j)) 
               vec_fp_alu_module.io.vs1_in(i)(j) := 0.S
