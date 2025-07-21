@@ -96,14 +96,14 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
             recOut := add.io.out.asSInt
             exception_reg := add.io.exceptionFlags
 
-        // case `vfmul` =>
-        //     val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-        //     mul.io.a := recA
-        //     mul.io.b := recB
-        //     mul.io.roundingMode := roundingMode
-        //     mul.io.detectTininess := detectTininess
-        //     recOut := mul.io.out.asSInt
-        //     exception_reg := mul.io.exceptionFlags
+        case `vfmul` =>
+            val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            mul.io.a := recA
+            mul.io.b := recB
+            mul.io.roundingMode := roundingMode
+            mul.io.detectTininess := detectTininess
+            recOut := mul.io.out.asSInt
+            exception_reg := mul.io.exceptionFlags
 
         // case `vfdiv` | `vfrdiv` =>
         //     val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
