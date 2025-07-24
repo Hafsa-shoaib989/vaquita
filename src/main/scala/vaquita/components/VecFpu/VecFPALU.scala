@@ -82,54 +82,21 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
     // ******************
 
     opType match {
-        case `vfadd` | `vfsub` | `vfrsub` =>
-            val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            add.io.a := recA
-            add.io.b := recB
-            when (opType === vfsub || opType === vfrsub) {
-                add.io.subOp := true.B
-            } .otherwise {
-                add.io.subOp := false.B
-            } 
-            add.io.roundingMode := roundingMode
-            add.io.detectTininess := detectTininess
-            recOut := add.io.out.asSInt
-            exception_reg := add.io.exceptionFlags
+        // case `vfadd` | `vfsub` | `vfrsub` =>
+        //     val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+        //     add.io.a := recA
+        //     add.io.b := recB
+        //     when (opType === vfsub || opType === vfrsub) {
+        //         add.io.subOp := true.B
+        //     } .otherwise {
+        //         add.io.subOp := false.B
+        //     } 
+        //     add.io.roundingMode := roundingMode
+        //     add.io.detectTininess := detectTininess
+        //     recOut := add.io.out.asSInt
+        //     exception_reg := add.io.exceptionFlags
 
-        case `vfmul` =>
-            val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-            mul.io.a := recA
-            mul.io.b := recB
-            mul.io.roundingMode := roundingMode
-            mul.io.detectTininess := detectTininess
-            recOut := mul.io.out.asSInt
-            exception_reg := mul.io.exceptionFlags
-
-        // case `vfdiv` | `vfrdiv` =>
-        //     val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-        //     div.io.a := recA
-        //     div.io.b := recB
-        //     div.io.sqrtOp := false.B
-        //     div.io.inValid := true.B
-        //     val internalReady = WireDefault(true.B)
-        //     internalReady := div.io.inReady 
-        //     div.io.roundingMode := roundingMode
-        //     div.io.detectTininess := detectTininess
-        //     when(div.io.outValid_div || div.io.outValid_sqrt) {
-        //         recOut := div.io.out.asSInt
-        //         exception_reg := div.io.exceptionFlags
-        //     }
-
-        // case `vfmin` | `vfmax` =>
-        //     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-        //     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
-        //     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
-            
-        //     cmp.io.a := recA
-        //     cmp.io.b := recB
-        //     cmp.io.signaling := true.B 
-
-        //     val bothNaN = rawA.i/ case `vfmul` =>
+        // case `vfmul` =>
         //     val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
         //     mul.io.a := recA
         //     mul.io.b := recB
@@ -148,22 +115,37 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
         //     internalReady := div.io.inReady 
         //     div.io.roundingMode := roundingMode
         //     div.io.detectTininess := detectTininess
-        //     when(div.io.outValid_div || div.io.outValid_sqrt) {
+        //     when(div.io.outValid_div) {
         //         recOut := div.io.out.asSInt
         //         exception_reg := div.io.exceptionFlags
-        //     }sNaN && rawB.isNaN
-        //     val oneNaN  = rawA.isNaN ^ rawB.isNaN
-        //     val isMin = (opType === vfmin)
+        //     }
 
-        //     recOut := MuxCase(recB.asSInt, Seq(
-        //             bothNaN -> FPConfig.canon_nan.asSInt,
-        //             oneNaN  -> Mux(rawA.isNaN, recA.asSInt, recB.asSInt),
-        //             true.B  -> Mux(isMin,
-        //                             Mux(cmp.io.lt || cmp.io.eq, recB.asSInt, recA.asSInt), //min
-        //                             Mux(cmp.io.gt || cmp.io.eq, recB.asSInt, recA.asSInt))  //max
-        //     ))
+        case `vfmin` | `vfmax` =>
+            val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+            val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
+            
+            cmp.io.a := recA
+            cmp.io.b := recB
+            cmp.io.signaling := true.B 
 
-        //     exception_reg := cmp.io.exceptionFlags
+            val bothNaN = rawA.isNaN && rawB.isNaN
+            val oneNaN  = rawA.isNaN ^ rawB.isNaN
+            val bothZero = rawA.isZero && rawB.isZero
+            val aNegZero = rawA.isZero && rawA.sign       // signedZero logic
+            val bNegZero = rawB.isZero && rawB.sign
+
+            val isMin = (opType === vfmin)
+            val minCondition = cmp.io.lt || (bothZero && aNegZero && isMin) || (bothZero && !aNegZero && !isMin)
+            val maxCondition = cmp.io.gt || (bothZero && !aNegZero && !isMin) || (bothZero && aNegZero && isMin)
+
+            recOut := MuxCase(recB.asSInt, Seq(
+                bothNaN -> FPConfig.canon_nan.asSInt,
+                oneNaN  -> Mux(rawA.isNaN, recB.asSInt, recA.asSInt),
+                isMin   -> Mux(minCondition, recA.asSInt, recB.asSInt),
+                !isMin  -> Mux(maxCondition, recA.asSInt, recB.asSInt)
+            ))
+            exception_reg := cmp.io.exceptionFlags
 
         // case `vfmacc` | `vfnmacc` | `vfmsac` | `vfnmsac` | `vfmadd` | `vfnmadd` | `vfmsub` | `vfnmsub` =>
         //     val fma = Module(new MulAddRecFN(FPConfig.expWidth, FPConfig.sigWidth))

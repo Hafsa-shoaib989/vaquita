@@ -26,7 +26,7 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 1 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x02003057".U)
+      dut.io.instr.poke("x0200b057".U)
       dut.io.rs1_data.poke(0.S)
       dut.io.hazard_rs1_data_in.poke(0.U)
       // dut.io.vl_rs1_out.expect(0.U)    
@@ -89,34 +89,8 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 7 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x03055957".U)
-      dut.io.rs1_data.poke(0x40400000.S)
-      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 8 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x03255a57".U)
-      dut.io.rs1_data.poke(0x40400000.S)
-      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 9 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x03491b57".U)
-      dut.io.rs1_data.poke(0.S)
-      dut.io.hazard_rs1_data_in.poke(0.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 10 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x92eb1c57".U)
+     //min / max
+      dut.io.instr.poke("x12e81957".U)
       dut.io.rs1_data.poke(0.S)
       dut.io.hazard_rs1_data_in.poke(0.U)
       // dut.io.vl_rs1_out.expect(5.U)    
@@ -125,32 +99,77 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
 
-      // dut.io.instr.poke("x".U)
+      dut.io.instr.poke("x13255a57".U)
+      dut.io.rs1_data.poke(0x40400000.S)
+      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
+      // dut.io.vl_rs1_out.expect(5.U)    
+      dut.io.dmemReq.ready.poke(true.B)
+      dut.io.dmemRsp.valid.poke(true.B)
+      dut.clock.step(1)
+      println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
+
+
+
+      // // divv
+      // dut.io.instr.poke("x82e81957".U)
       // dut.io.rs1_data.poke(0.S)
       // dut.io.hazard_rs1_data_in.poke(0.U)
       // // dut.io.vl_rs1_out.expect(5.U)    
       // dut.io.dmemReq.ready.poke(true.B)
       // dut.io.dmemRsp.valid.poke(true.B)
-      // dut.clock.step(1)
+      // dut.clock.step(32)
+      // println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
+
+      // dut.io.instr.poke("x83255a57".U)
+      // dut.io.rs1_data.poke(0x40400000.S)
+      // dut.io.hazard_rs1_data_in.poke(0x40400000.U)
+      // // dut.io.vl_rs1_out.expect(5.U)    
+      // dut.io.dmemReq.ready.poke(true.B)
+      // dut.io.dmemRsp.valid.poke(true.B)
+      // dut.clock.step(32)
       // println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x93855d57".U)
-      dut.io.rs1_data.poke(0x40400000.S)
-      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
-
-      // dut.io.instr.poke("x02755457".U)
+      // dut.io.instr.poke("x87455b57".U)
       // dut.io.rs1_data.poke(0x40400000.S)
       // dut.io.hazard_rs1_data_in.poke(0x40400000.U)
       // // dut.io.vl_rs1_out.expect(5.U)    
       // dut.io.dmemReq.ready.poke(true.B)
       // dut.io.dmemRsp.valid.poke(true.B)
       // dut.clock.step(1)
-      // println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
+      // println(s"Cycle 13 completed, instr: ${dut.io.instr.peek()}")
+
+
+
+
+
+
+
+      // dut.io.instr.poke("x03055957".U)
+      // dut.io.rs1_data.poke(0x40400000.S)
+      // dut.io.hazard_rs1_data_in.poke(0x40400000.U)
+      // // dut.io.vl_rs1_out.expect(5.U)    
+      // dut.io.dmemReq.ready.poke(true.B)
+      // dut.io.dmemRsp.valid.poke(true.B)
+      // dut.clock.step(1)
+      // println(s"Cycle 8 completed, instr: ${dut.io.instr.peek()}")
+
+      // dut.io.instr.poke("x03255a57".U)
+      // dut.io.rs1_data.poke(0x40400000.S)
+      // dut.io.hazard_rs1_data_in.poke(0x40400000.U)
+      // // dut.io.vl_rs1_out.expect(5.U)    
+      // dut.io.dmemReq.ready.poke(true.B)
+      // dut.io.dmemRsp.valid.poke(true.B)
+      // dut.clock.step(1)
+      // println(s"Cycle 9 completed, instr: ${dut.io.instr.peek()}")
+
+      // dut.io.instr.poke("x03491b57".U)
+      // dut.io.rs1_data.poke(0.S)
+      // dut.io.hazard_rs1_data_in.poke(0.U)
+      // // dut.io.vl_rs1_out.expect(5.U)    
+      // dut.io.dmemReq.ready.poke(true.B)
+      // dut.io.dmemRsp.valid.poke(true.B)
+      // dut.clock.step(1)
+      // println(s"Cycle 10 completed, instr: ${dut.io.instr.peek()}")
 
       // dut.io.instr.poke("x022414d7".U)
       // dut.io.rs1_data.poke(0.S)
