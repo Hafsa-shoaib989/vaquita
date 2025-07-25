@@ -8,15 +8,7 @@ import vaquita.configparameter.VaquitaConfig
 class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
   "vec top test" in {
     implicit val config = new VaquitaConfig (32,32,32,1,true)
-    test(new VaquitaTop) { dut =>
-      // dut.io.instr.poke(0.U)
-      // dut.io.rs1_data.poke(5.S)
-      // dut.io.hazard_rs1_data_in.poke(0.U)
-      // // dut.io.vl_rs1_out.expect(0.U)    
-      // dut.io.dmemReq.ready.poke(true.B)
-      // dut.io.dmemRsp.valid.poke(true.B)
-      // dut.clock.step(1)
-      
+    test(new VaquitaTop) { dut =>     
       dut.io.instr.poke("x0112f2d7".U)
       dut.io.rs1_data.poke(0.S)
       dut.io.hazard_rs1_data_in.poke(4.U)
@@ -107,6 +99,9 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.io.dmemRsp.valid.poke(true.B)
       dut.clock.step(1)
       println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
+
+
+
 
 
 
