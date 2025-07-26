@@ -54,12 +54,13 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     }
 
     // Floating point vector instructions
+    val is_vfdiv = (io.instr(6,0) === "b1010111".U) && (io.instr(31,26) === "b100000".U || io.instr(31,26) === "b100001".U)
     when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U)) {
       switch(io.instr(6,0)) {  
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
-            is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to vec
-            is("b101".U) { setValues(false.B, "b01".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to scalar
+            is("b001".U) { setValues(false.B, "b00".U, false.B, !is_vfdiv, false.B, false.B, false.B, true.B) }//vec to vec
+            is("b101".U) { setValues(false.B, "b01".U, false.B, !is_vfdiv, false.B, false.B, false.B, true.B) }//vec to scalar
         }
         }
       }
