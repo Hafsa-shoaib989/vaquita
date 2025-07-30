@@ -19,11 +19,9 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val alu_ctrl_scalarM = Input(UInt(11.W))  // for scalar move 
         val mask_arith   = Input(Bool())      // want to apply masking or not?
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
+        val valid_dive   = Output(Bool())
         // val exceptions   = Output(UInt(5.W))
     }) 
-
-// dontTouch(io.vs1_in)
-// dontTouch(io.vs2_in)
 
 val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)  // convert into one array (string), for making masking easy.
 val exception_reg = RegInit(0.U(5.W))
@@ -81,83 +79,55 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
     // ******************
 
     opType match {
-        // case `vfadd` | `vfsub` | `vfrsub` =>
-        //     val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-        //     add.io.a := recA
-        //     add.io.b := recB
-        //     when (opType === vfsub || opType === vfrsub) {
-        //         add.io.subOp := true.B
-        //     } .otherwise {
-        //         add.io.subOp := false.B
-        //     } 
-        //     add.io.roundingMode := roundingMode
-        //     add.io.detectTininess := detectTininess
-        //     recOut := add.io.out.asSInt
-        //     exception_reg := add.io.exceptionFlags
+        case `vfadd` | `vfsub` | `vfrsub` =>
+            val add = Module(new AddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            add.io.a := recA
+            add.io.b := recB
+            when (opType === vfsub || opType === vfrsub) {
+                add.io.subOp := true.B
+            } .otherwise {
+                add.io.subOp := false.B
+            } 
+            add.io.roundingMode := roundingMode
+            add.io.detectTininess := detectTininess
+            recOut := add.io.out.asSInt
+            exception_reg := add.io.exceptionFlags
 
-        // case `vfmul` =>
-        //     val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-        //     mul.io.a := recA
-        //     mul.io.b := recB
-        //     mul.io.roundingMode := roundingMode
-        //     mul.io.detectTininess := detectTininess
-        //     recOut := mul.io.out.asSInt
-        //     exception_reg := mul.io.exceptionFlags
+        case `vfmul` =>
+            val mul = Module(new MulRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            mul.io.a := recA
+            mul.io.b := recB
+            mul.io.roundingMode := roundingMode
+            mul.io.detectTininess := detectTininess
+            recOut := mul.io.out.asSInt
+            exception_reg := mul.io.exceptionFlags
 
-        // case `vfdiv` | `vfrdiv` =>
-        //     val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-        //     div.io.a := recA
-        //     div.io.b := recB
-        //     div.io.sqrtOp := false.B
-        //     when(div.io.inReady) {
-        //         div.io.inValid := true.B
-        //     }.otherwise {
-        //         div.io.inValid := false.B
-        //     }
-
-        //     div.io.roundingMode := roundingMode
-        //     div.io.detectTininess := detectTininess
-        //     // when(div.io.outValid_div) {
-        //     //     recOut := div.io.out.asSInt
-        //     //     exception_reg := div.io.exceptionFlags
-        //     // }
-        //     recOut := div.io.out.asSInt
-        //     exception_reg := div.io.exceptionFlags
-
-            // div.io.inValid := true.B
-            // val internalReady = WireDefault(true.B)
-            // internalReady := div.io.inReady 
-            // val divDone  = Wire(Bool())
-            // io.vfdiv_all_done = divDone.reduce(_ && _)
-
-
-
-        // case `vfmin` | `vfmax` =>
-        //     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-        //     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
-        //     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
+        case `vfmin` | `vfmax` =>
+            val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+            val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+            val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
             
-        //     cmp.io.a := recA
-        //     cmp.io.b := recB
-        //     cmp.io.signaling := true.B 
+            cmp.io.a := recA
+            cmp.io.b := recB
+            cmp.io.signaling := true.B 
 
-        //     val bothNaN = rawA.isNaN && rawB.isNaN
-        //     val oneNaN  = rawA.isNaN ^ rawB.isNaN
-        //     val bothZero = rawA.isZero && rawB.isZero
-        //     val aNegZero = rawA.isZero && rawA.sign       // signedZero logic
-        //     val bNegZero = rawB.isZero && rawB.sign
+            val bothNaN = rawA.isNaN && rawB.isNaN
+            val oneNaN  = rawA.isNaN ^ rawB.isNaN
+            val bothZero = rawA.isZero && rawB.isZero
+            val aNegZero = rawA.isZero && rawA.sign       // signedZero logic
+            val bNegZero = rawB.isZero && rawB.sign
 
-        //     val isMin = (opType === vfmin)
-        //     val minCondition = cmp.io.lt || (bothZero && aNegZero && isMin) || (bothZero && !aNegZero && !isMin)
-        //     val maxCondition = cmp.io.gt || (bothZero && !aNegZero && !isMin) || (bothZero && aNegZero && isMin)
+            val isMin = (opType === vfmin)
+            val minCondition = cmp.io.lt || (bothZero && aNegZero && isMin) || (bothZero && !aNegZero && !isMin)
+            val maxCondition = cmp.io.gt || (bothZero && !aNegZero && !isMin) || (bothZero && aNegZero && isMin)
 
-        //     recOut := MuxCase(recB.asSInt, Seq(
-        //         bothNaN -> FPConfig.canon_nan.asSInt,
-        //         oneNaN  -> Mux(rawA.isNaN, recB.asSInt, recA.asSInt),
-        //         isMin   -> Mux(minCondition, recA.asSInt, recB.asSInt),
-        //         !isMin  -> Mux(maxCondition, recA.asSInt, recB.asSInt)
-        //     ))
-        //     exception_reg := cmp.io.exceptionFlags
+            recOut := MuxCase(recB.asSInt, Seq(
+                bothNaN -> FPConfig.canon_nan.asSInt,
+                oneNaN  -> Mux(rawA.isNaN, recB.asSInt, recA.asSInt),
+                isMin   -> Mux(minCondition, recA.asSInt, recB.asSInt),
+                !isMin  -> Mux(maxCondition, recA.asSInt, recB.asSInt)
+            ))
+            exception_reg := cmp.io.exceptionFlags
 
         case `vfmacc` | `vfnmacc` | `vfmsac` | `vfnmsac` | `vfmadd` | `vfnmadd` | `vfmsub` | `vfnmsub` =>
             val fma = Module(new MulAddRecFN(FPConfig.expWidth, FPConfig.sigWidth))
@@ -202,30 +172,29 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 }
 
-// def Division(vs1_in: SInt, vs2_in: SInt): (SInt,Bool) = {
-//     val recOut1 = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
-//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
-//     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-//     val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-//     div.io.a := recA
-//     div.io.b := recB
-//     div.io.sqrtOp := false.B
-//     when(div.io.inReady) {
-//         div.io.inValid := true.B
-//     }.otherwise {
-//         div.io.inValid := false.B
-//     }
-//     div.io.roundingMode := roundingMode
-//     div.io.detectTininess := detectTininess
-//     // when(div.io.outValid_div) {
-//     //     recOut := div.io.out.asSInt
-//     //     exception_reg := div.io.exceptionFlags
-//     // }
-//     recOut1 := div.io.out.asSInt
-//     exception_reg := div.io.exceptionFlags
+def Division(vs1_in: SInt, vs2_in: SInt): (SInt,Bool) = {
+    val recOut1 = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+    div.io.a := recA
+    div.io.b := recB
+    div.io.sqrtOp := false.B
+    // when(div.io.inReady && (io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv)) {
+    when(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
+        div.io.inValid := true.B
+    }.otherwise {
+        div.io.inValid := false.B
+    }
+    div.io.roundingMode := roundingMode
+    div.io.detectTininess := detectTininess
+    val internalReady = WireDefault(true.B)
+    internalReady := div.io.inReady 
+    recOut1 := div.io.out.asSInt
+    exception_reg := div.io.exceptionFlags
 
-//     (fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut1).asSInt, div.io.outValid_div)
-// }
+    (fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut1).asSInt, div.io.outValid_div)
+}
 
 def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): (SInt, Bool) = {
     val result = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
@@ -249,17 +218,120 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): (SInt, Bool) = {
             vfnmsub         -> applyArithmeticOp(vs1_in, vs2_in, vfnmsub, vsd)
     ))
     flag := 0.B
-    // }.elsewhen(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
-    //     val (w, v) = Division(vs2_in, vs1_in)
-    //     result := w
-    //     flag := v
+    }.elsewhen(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
+        val (w, v) = Division(vs2_in, vs1_in)
+        result := w
+        flag := v
     }.otherwise {
         result := 0.S
         flag := 0.B
     }
     (result, flag)
-    // result
 }
+
+
+
+
+// //COMPARISION INSTRUCTIONS
+// def comp_elem_fn(sew:Int,counter:UInt):SInt={
+//     val cat_element      = WireInit(0.S(32.W))
+//     val comp_fn_value    = comp_func(sew).asSInt
+//     val comp_shift       = 0
+//     val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
+//     val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
+//     for (i <- 1 to 31) {
+//     comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
+//     when(comp_1bt_cn(i) === i.U) {
+//         cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
+//     }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   // masking for body elements
+//         cat_element := output_comp_Data(counter).asSInt 
+//     }
+//     }
+//     cat_element
+// }
+
+// def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
+//     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+//     cmp.io.a := vs1_in.asUInt
+//     cmp.io.b := vs2_in.asUInt
+
+//     // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
+//     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
+//     when (opType === vmfeq || opType === vmfne) {
+//         cmp.io.signaling := false.B
+//     }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
+//         cmp.io.signaling := true.B
+//     }.otherwise {
+//         cmp.io.signaling := false.B
+//     } 
+
+//     val result = WireDefault(false.B)
+//     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
+//     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
+//     val anyNaN = rawA.isNaN || rawB.isNaN
+
+//     switch(opType) {
+//         is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
+//         is(vmfne) { result := !(cmp.io.eq) || anyNaN }
+//         is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
+//         is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
+//         is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
+//         is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
+//     }
+
+//     exception_reg := cmp.io.exceptionFlags
+//     result
+// }
+
+// def Comparison(vs1_in: SInt, vs2_in: SInt): Bool = {
+//     MuxLookup(io.alu_ctrl, false.B, Seq(
+//         vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
+//         vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
+//         vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
+//         vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
+//         vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
+//         vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
+//     ))
+// }
+
+// def comp_func(sew: Int): UInt = {
+//     val elementsPerLane = config.vlen / sew
+//     val comparison_vec_bit_wires = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_1b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_0b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_vs3 = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val vs3_bit = io.vs3_in.asUInt
+//     var counter = 0
+//     for (i <- 0 until config.count_lanes) {
+//     for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
+//         val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
+//         val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
+//         if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
+//         val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)
+//         val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
+//         val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_elem.asUInt)
+//         val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_elem.asUInt)
+//         val comparison = Comparison(rec_vs1.asSInt, rec_vs2.asSInt)
+//         comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
+//         comp_vs3(counter) := (!vs0_mask(counter) && !io.mask_arith)
+//         comp_0b(counter) := (io.mask_arith && !comparison)
+//         comparison_vec_bit_wires(counter) := MuxCase(0.B, Array(
+//             (comp_0b(counter) === 1.B) -> 0.B,
+//             (comp_vs3(counter) === 1.B) -> vs3_bit(counter),
+//             (comp_1b(counter) === 1.B) -> 1.B
+//         ))
+//         counter += 1
+//         }
+//     }
+//     }
+//     comparison_vec_bit_wires.asUInt
+// }
+
+
+
+
+
+
 
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): (SInt, Bool)={
@@ -305,74 +377,59 @@ val scalar_move_bit = sm_f_s || sm_s_f
 val reduc_max_bit = io.alu_ctrl === vfredmax
 val reduc_min_bit = io.alu_ctrl === vfredmin
 val reduc_op_bit = io.alu_ctrl === vfredmax || io.alu_ctrl === vfredmin
-// val div_bit = io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv
+val div_bit = io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv
 
-// DIVISION INSTRUCTIONS
-// when (div_bit) {/
-// val divCores = Seq.fill(4)(Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0)))
-// val divBusy  = RegInit(VecInit(Seq.fill(4)(false.B)))
-// val divDone  = Wire(Vec(4, Bool()))
-// io.vfdiv_all_done = divDone.reduce(_ && _)
-// val divResult = Reg(Vec(4, SInt((FPConfig.expWidth + FPConfig.sigWidth + 1).W)))
-// val divException = Reg(Vec(4, UInt(5.W)))
-// }
-
-// val divBusy    = RegInit(VecInit(Seq.fill(8) {VecInit(Seq.fill(config.count_lanes)(false.B))}))
-// val divValues  = RegInit(VecInit(Seq.fill(8){VecInit(Seq.fill(config.count_lanes) {0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W)})}))
+val divBusy   = RegInit(VecInit(Seq.fill(8) {VecInit(Seq.fill(config.count_lanes)(false.B))}))
+val divValues = RegInit(VecInit(Seq.fill(8){VecInit(Seq.fill(config.count_lanes) {0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W)})}))
+io.valid_dive := 0.B
 
 when(io.sew==="b010".U){ // sew = 32   
-    when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
+    when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && !div_bit) {    //Arithmetic instructions
         var vl_counter = 1
         for (i <- 0 until 8) {
             for (j <- 0 until config.count_lanes) {
             val idx = (i * config.count_lanes) + j
             val mask = vs0_mask(idx)
-
+            val (a,b) = sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask)
             io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,                          
-                sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask)._1,     
+                a,   
                 Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
             )     
             vl_counter = vl_counter + 1
         }
     }
 
-    // }.elsewhen (!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && div_bit) {     //Div instructions
-    //     var vl_counter = 1
-    //     for (i <- 0 until 8) {
-    //         for (j <- 0 until config.count_lanes) {
-    //         val idx = (i * config.count_lanes) + j
-    //         val mask = vs0_mask(idx)
-
-    //         val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs1_in(i)(j).asUInt)
-    //         val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, io.vs2_in(i)(j).asUInt)
-
-    //         // Divider handshake
-    //         divCores(i)(j).io.a := recA
-    //         divCores(i)(j).io.b := recB
-    //         divCores(i)(j).io.sqrtOp := false.B
-    //         divCores(i)(j).io.roundingMode := roundingMode
-    //         divCores(i)(j).io.detectTininess := detectTininess
-
-    //         divCores(i)(j).io.inValid := !divBusy(i)(j) && (io.vl_in > i.U)
-    //         when(!divBusy(i)(j) && (io.vl_in > i.U)) {
-    //             divBusy(i)(j) := true.B
-    //             divDone(i)(j) := false.B
-    //         }
-    //         when(divCores(i)(j).io.outValid_div && divBusy(i)(j)) {
-    //             divResult(i)(j) := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, divCores(i)(j).io.out).asSInt
-    //             divException(i) := divCores(i)(j).io.exceptionFlags
-    //             divBusy(i)(j) := false.B
-    //             divDone(i)(j) := true.B
-    //         }
-    //         val computed_vs2 = Mux(divDone(i)(j), divResult(i)(j), io.vs3_in(i)(j))
-            
-    //         io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,                          
-    //             sew_arit_32(io.vs1_in(i)(j), computed_vs2, io.vs3_in(i)(j), mask),     
-    //             Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-    //         )     
-    //         vl_counter = vl_counter + 1
-    //     }
-    // }
+    }.elsewhen (!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && div_bit) {     //Div instructions
+        var vl_counter = 1
+        when (io.vl_in >= vl_counter.U) {
+            for (i <- 0 until 8) {
+                for (j <- 0 until config.count_lanes) {
+                val idx = (i * config.count_lanes) + j
+                val mask = vs0_mask(idx)
+                val (a, div_b) = sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask)
+                dontTouch(div_b)
+                when (div_b === 1.B || mask === 0.B) {
+                    divBusy(i)(j) := 1.B
+                    divValues(i)(j) := a
+                }.otherwise {
+                    divBusy(i)(j) := DontCare
+                    divValues(i)(j) := DontCare
+                }   
+                vl_counter = vl_counter + 1
+                }
+            }
+            val allDivBusy = divBusy.flatten.reduce(_ && _)
+            io.valid_dive := allDivBusy
+            io.vsd_out <> divValues
+        }.otherwise{
+            var vl_counter = 1
+            for (i <- 0 until 8) {
+            for (j <- 0 until config.count_lanes) {
+                io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt) 
+                vl_counter = vl_counter + 1
+            }
+            }
+        }
 
     }.otherwise{     //comp_bit === 1.B
         // ************  for testing ..will remove once passed 
@@ -385,15 +442,29 @@ when(io.sew==="b010".U){ // sew = 32
                 vl_counter = vl_counter + 1
             }
             }
+         }
         // ***************    
         
-        }
+        // var vl_counter1 = 1
+        // var counter2 = 0  
+        // for (j <- 0 until config.count_lanes) {
+        //     io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+        //     vl_counter1    = vl_counter1 + 32
+        //     counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
+        //     }
+        //     for (i <- 1 until 8) {
+        //     for (j <- 0 until config.count_lanes) {
+        //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+        //     }
+        //     }
+        
+        // }
 }.otherwise{
     var vl_counter = 1
     for (i <- 0 until 8) {
     for (j <- 0 until config.count_lanes) {
-        // val idx = (i * config.count_lanes) + j
-        // val mask = vs0_mask(idx)
+        val idx = (i * config.count_lanes) + j
+        val mask = vs0_mask(idx)
         io.vsd_out(i)(j) :=0.S 
         vl_counter = vl_counter + 1
     }

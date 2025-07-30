@@ -47,6 +47,7 @@ class VaquitaTop extends Module {
     DE.de_io.instr := RegNext(io.instr)
     DE.de_io.rs1_data := RegNext(io.rs1_data)
     DE.de_io.wb_reg_write_in  := WB.wb_reg_write_out
+    DE.de_io.de_valid_div := WB.wb_valid_div_out
 
     // -----------------excute stage ---------------------------------
     EX.ex_fpu_signal_in := DE.de_io.de_fpu_signal
@@ -132,6 +133,7 @@ class VaquitaTop extends Module {
     MEM.read_en             := EX.ex_read_en_out
     MEM.mem_rs1_data_in     := EX.ex_rs1_data_out
     MEM.mem_reg_write_in    := EX.ex_reg_write_out
+    MEM.mem_valid_div_in    := EX.ex_valid_div_out
     WB.wb_vsd_data_in       <> MEM.mem_vsd_data_out
     WB.wb_vs3_data_in_store <> wb_vs3_data_in_store
     MEM.mem_vs1_data_vs3_in <> EX.ex_vs1_data_out_vs3
@@ -139,6 +141,8 @@ class VaquitaTop extends Module {
     WB.wb_vs3_data_in_store       <> MemFetch.vec_read_data_load
     WB.wb_vs3_data_in_store(0)(0) := MemFetch.vec_read_data_load(0)(0)
     WB.mem_to_reg                 := MEM.mem_read_en_out
+    WB.wb_valid_div_in            := MEM.mem_valid_div_out
+   
 
 
     // -----------------write back stage ---------------------------------
@@ -177,7 +181,7 @@ object VaquitaDriver {
 
 
 
-// // for integrating with nrv.....put this TOP:
+// // FOR INTEGRATING WITH NRV ...PUT THIS TOP:
 // package vaquita
 // import chisel3._
 // import chisel3.util._
@@ -197,7 +201,7 @@ object VaquitaDriver {
 //         val vl_rs1_out = Output(UInt(32.W))
         
 //     })
-//     implicit val vec_config = VaquitaConfig (32,32,32,1,true)
+//     implicit val vec_config = VaquitaConfig (256,32,32,8,true)
 
 //     val de_stage = Module(new DecodeStage()(vec_config))
 //     val DE        = de_stage.io
@@ -227,6 +231,7 @@ object VaquitaDriver {
 //     DE.de_io.instr := io.instr
 //     DE.de_io.rs1_data := io.rs1_data
 //     DE.de_io.wb_reg_write_in  := WB.wb_reg_write_out
+//     DE.de_io.de_valid_div := WB.wb_valid_div_out
 
 //     // -----------------excute stage ---------------------------------
 //     EX.ex_fpu_signal_in := DE.de_io.de_fpu_signal
@@ -313,11 +318,13 @@ object VaquitaDriver {
 //     MEM.mem_reg_write_in    := EX.ex_reg_write_out
 //     WB.wb_vsd_data_in       <> MEM.mem_vsd_data_out
 //     WB.wb_vs3_data_in_store <> wb_vs3_data_in_store
+//     MEM.mem_valid_div_in    := EX.ex_valid_div_out
 //     MEM.mem_vs1_data_vs3_in <> EX.ex_vs1_data_out_vs3
 //     // send to register file
 //     WB.wb_vs3_data_in_store       <> MemFetch.vec_read_data_load
 //     WB.wb_vs3_data_in_store(0)(0) := MemFetch.vec_read_data_load(0)(0)
 //     WB.mem_to_reg                 := MEM.mem_read_en_out
+//     WB.wb_valid_div_in            := MEM.mem_valid_div_out
 
 
 //     // -----------------write back stage ---------------------------------

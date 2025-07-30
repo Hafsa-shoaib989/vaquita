@@ -16,6 +16,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
         val lmul = Input(UInt(3.W))
         val sew = Input(UInt(3.W))
         val vl = Input(SInt(32.W))
+        val fp_valid_div = Input(Bool())
         
         val vs1_data = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val vs2_data = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
@@ -30,8 +31,9 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
     val vl=3.U
     val vs3_addr = io.vd_addr//decode vs3 addr
     val vs0_addr = 0.U
+    val vec_valid_reg_write = io.reg_write || io.fp_valid_div
     def read_vrf(a:Int):Unit={
-      when((io.reg_write === 1.B) && (io.vs1_addr === io.wb_vd_addr && (io.func3===0.U || io.func3===1.U) && (io.vs2_addr =/= io.wb_vd_addr)) && io.store_vs3_to_mem===0.B){
+      when((vec_valid_reg_write === 1.B) && (io.vs1_addr === io.wb_vd_addr && (io.func3===0.U || io.func3===1.U) && (io.vs2_addr =/= io.wb_vd_addr)) && io.store_vs3_to_mem===0.B){
         for (i <- 0 until a) { // for grouping = 8
         val offset = i.U
         for (j <- 0 until (config.count_lanes)) {
@@ -39,7 +41,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
           io.vs2_data(i)(j) := vrf(io.vs2_addr + offset)(j)
           io.vs3_data(i)(j) := vrf(vs3_addr + offset)(j)
           io.vs0_data(i)(j) := vrf(vs0_addr + offset)(j)
-    }}}.elsewhen((io.reg_write === 1.B) && (io.vs2_addr === io.wb_vd_addr  && io.store_vs3_to_mem===0.B)){
+    }}}.elsewhen((vec_valid_reg_write === 1.B) && (io.vs2_addr === io.wb_vd_addr  && io.store_vs3_to_mem===0.B)){
         for (i <- 0 until a) { // for grouping = 8
         val offset = i.U
         for (j <- 0 until (config.count_lanes)) {
@@ -47,7 +49,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
           io.vs1_data(i)(j) := vrf(io.vs1_addr + offset)(j)
           io.vs3_data(i)(j) := vrf(vs3_addr + offset)(j)
           io.vs0_data(i)(j) := vrf(vs0_addr + offset)(j)
-    }}}.elsewhen((io.reg_write === 1.B) && (io.vd_addr === io.wb_vd_addr  && io.store_vs3_to_mem===1.B) ){//use next vs3 addr for store instruction
+    }}}.elsewhen((vec_valid_reg_write === 1.B) && (io.vd_addr === io.wb_vd_addr  && io.store_vs3_to_mem===1.B) ){//use next vs3 addr for store instruction
         for (i <- 0 until a) { // for grouping = 8
         val offset = i.U
         for (j <- 0 until (config.count_lanes)) {
@@ -55,7 +57,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
           io.vs1_data(i)(j) := vrf(io.vs1_addr + offset)(j)
           io.vs2_data(i)(j) := vrf(io.vs2_addr + offset)(j)
           io.vs0_data(i)(j) := vrf(vs0_addr + offset)(j)
-    }}}.elsewhen((io.reg_write === 1.B) && (vs0_addr === io.wb_vd_addr) && io.store_vs3_to_mem===0.B){
+    }}}.elsewhen((vec_valid_reg_write === 1.B) && (vs0_addr === io.wb_vd_addr) && io.store_vs3_to_mem===0.B){
         for (i <- 0 until a) { // for grouping = 8
         val offset = i.U
         for (j <- 0 until (config.count_lanes)) {
@@ -64,7 +66,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
           io.vs2_data(i)(j) := vrf(io.vs2_addr + offset)(j)
           io.vs3_data(i)(j) := vrf(vs3_addr + offset)(j)
     }}}
-    .elsewhen((io.reg_write === 1.B) && (io.vs2_addr === io.wb_vd_addr) && (io.vs1_addr === io.wb_vd_addr) && (io.func3===0.U || io.func3===1.U)  && io.store_vs3_to_mem===0.B){
+    .elsewhen((vec_valid_reg_write === 1.B) && (io.vs2_addr === io.wb_vd_addr) && (io.vs1_addr === io.wb_vd_addr) && (io.func3===0.U || io.func3===1.U)  && io.store_vs3_to_mem===0.B){
         for (i <- 0 until a) { // for grouping = 8
         val offset = i.U
         for (j <- 0 until (config.count_lanes)) {
@@ -113,7 +115,7 @@ class VecRegFile(implicit val config: VaquitaConfig) extends Module {
       read_vrf(1)
     }
 
-    when (io.reg_write===1.B) {
+    when (vec_valid_reg_write===1.B) {
       when(io.lmul===0.U){
       write_vrf(1)
     }.elsewhen(io.lmul===1.U){

@@ -37,6 +37,8 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     // Default values
     setValues(false.B, "b11".U, false.B, false.B, false.B, false.B, false.B, false.B) 
 
+    val is_vfdiv = (io.instr(6,0) === "b1010111".U) && (io.instr(31,26) === "b100000".U || io.instr(31,26) === "b100001".U)
+    
     // Integer vector instructions
     when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b111".U || io.instr(14,12) === "b000".U || io.instr(14,12) === "b011".U || io.instr(14,12) === "b100".U)) {
         switch(io.instr(6,0)) {
@@ -53,16 +55,34 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
         }
     }
 
+
+    when(io.instr(6,0) === "b0000111".U || io.instr(6,0) === "b0100111".U) {
+        switch(io.instr(6,0)) {
+            is("b0100111".U) { setValues(true.B,  "b00".U, false.B, false.B, false.B, false.B, true.B, false.B) } //vec store
+            is("b0000111".U) { setValues(false.B, "b11".U, true.B, true.B,   true.B, false.B, false.B, false.B) } // vec load
+        }
+    }
+
     // Floating point vector instructions
-    val is_vfdiv = (io.instr(6,0) === "b1010111".U) && (io.instr(31,26) === "b100000".U || io.instr(31,26) === "b100001".U)
-    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U)) {
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && !is_vfdiv) {
       switch(io.instr(6,0)) {  
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
-            is("b001".U) { setValues(false.B, "b00".U, false.B, !is_vfdiv, false.B, false.B, false.B, true.B) }//vec to vec
-            is("b101".U) { setValues(false.B, "b01".U, false.B, !is_vfdiv, false.B, false.B, false.B, true.B) }//vec to scalar
+            is("b001".U) { setValues(false.B, "b00".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to vec
+            is("b101".U) { setValues(false.B, "b01".U, false.B, true.B, false.B, false.B, false.B, true.B) }//vec to scalar
         }
         }
       }
     }
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && is_vfdiv) {
+      switch(io.instr(6,0)) {  
+        is("b1010111".U) {   
+        switch(io.instr(14,12)) {  
+            is("b001".U) { setValues(false.B, "b00".U, false.B, false.B, false.B, false.B, false.B, true.B) }//vec to vec
+            is("b101".U) { setValues(false.B, "b01".U, false.B, false.B, false.B, false.B, false.B, true.B) }//vec to scalar
+        }
+        }
+      }
+    }
+
 }

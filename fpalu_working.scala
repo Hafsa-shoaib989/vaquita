@@ -94,47 +94,19 @@
 //     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
 //     val recC = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vsd.asUInt)
 
-
-//     // ************  for testing ..will remove once passed 
-//     val preservedOpType = WireDefault(opType)
-//     dontTouch(preservedOpType)
-//     dontTouch(recOut)
-//     dontTouch(recA)
-//     dontTouch(recB)
-//     // ******************
-
-
 //     opType match {
 //         case `vfadd` | `vfsub` | `vfrsub` =>
 //             add.io.a := recA
 //             add.io.b := recB
 //             when (opType === vfsub || opType === vfrsub) {
-//                 // add.io.subOp := true.B
-             
-             
-//                 // ************  for testing ..will remove once passed 
-//                 add.io.subOp := false.B
-//                 //**************
-
-
+//                 add.io.subOp := true.B
 //             } .otherwise {
 //                 add.io.subOp := false.B
 //             } 
 //             add.io.roundingMode := roundingMode
 //             add.io.detectTininess := detectTininess
-//             // recOut := add.io.out.asSInt
+//             recOut := add.io.out.asSInt
 //             exception_reg := add.io.exceptionFlags
-
-
-//             // ************  for testing ..will remove once passed 
-//             recOut := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out.asSInt).asSInt
-//             dontTouch(add.io.a)  
-//             dontTouch(add.io.b)  
-//             dontTouch(add.io.subOp)  
-//             dontTouch(add.io.out)  
-//             dontTouch(recOut)
-//             // *********************
-
 
 //         case `vfmul` =>
 //             mul.io.a := recA
@@ -224,14 +196,7 @@
 //         case _ =>
 //         recOut := 0.S
 //     }
-//     // fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
-
-
-//     // ************  for testing ..will remove once passed 
-//     recOut
-//     //**************
-
-
+//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 // }
 
 // def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): SInt = {
@@ -255,223 +220,223 @@
 //     ))
 // }
 
-// // def applyArithmeticUnaryOp(vs2_in: SInt, opType: UInt): SInt = {
-// //     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+// def applyArithmeticUnaryOp(vs2_in: SInt, opType: UInt): SInt = {
+//     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
 
-// //     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-// //     opType match {
-// //         case `vfsqrt` =>
-// //             div.io.a := recA
-// //             div.io.b := 0.U
-// //             div.io.sqrtOp := true.B
-// //             div.io.inValid := true.B
-// //             val internalReady = WireDefault(true.B)
-// //             internalReady := div.io.inReady 
-// //             div.io.roundingMode := roundingMode
-// //             div.io.detectTininess := detectTininess
-// //             when(div.io.outValid_div || div.io.outValid_sqrt) {
-// //                 recOut := div.io.out.asSInt
-// //                 exception_reg := div.io.exceptionFlags
-// //             }
+//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+//     opType match {
+//         case `vfsqrt` =>
+//             div.io.a := recA
+//             div.io.b := 0.U
+//             div.io.sqrtOp := true.B
+//             div.io.inValid := true.B
+//             val internalReady = WireDefault(true.B)
+//             internalReady := div.io.inReady 
+//             div.io.roundingMode := roundingMode
+//             div.io.detectTininess := detectTininess
+//             when(div.io.outValid_div || div.io.outValid_sqrt) {
+//                 recOut := div.io.out.asSInt
+//                 exception_reg := div.io.exceptionFlags
+//             }
 
-// //         case `vfclass` =>
-// //             val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
-// //             recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
+//         case `vfclass` =>
+//             val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+//             recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
 
-// //         case _ =>
-// //         recOut := 0.S
-// //     }
-// //     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
-// // }
+//         case _ =>
+//         recOut := 0.S
+//     }
+//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
+// }
 
-// // def ArithmeticUnary(vs2_in: SInt): SInt = {
-// //     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
-// //         vfsqrt -> applyArithmeticUnaryOp(vs2_in, vfsqrt),
-// //         vfclass -> applyArithmeticUnaryOp(vs2_in, vfclass)
-// //     ))
-// // }
+// def ArithmeticUnary(vs2_in: SInt): SInt = {
+//     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
+//         vfsqrt -> applyArithmeticUnaryOp(vs2_in, vfsqrt),
+//         vfclass -> applyArithmeticUnaryOp(vs2_in, vfclass)
+//     ))
+// }
 
 
-// // //COMPARISION INSTRUCTIONS
-// // def comp_elem_fn(sew:Int,counter:UInt):SInt={
-// //     val cat_element      = WireInit(0.S(32.W))
-// //     val comp_fn_value    = comp_func(sew).asSInt
-// //     val comp_shift       = 0
-// //     val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
-// //     val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
-// //     for (i <- 1 to 31) {
-// //     comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
-// //     when(comp_1bt_cn(i) === i.U) {
-// //         cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
-// //     }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   // masking for body elements
-// //         cat_element := output_comp_Data(counter).asSInt 
-// //     }
-// //     }
-// //     cat_element
-// // }
+// //COMPARISION INSTRUCTIONS
+// def comp_elem_fn(sew:Int,counter:UInt):SInt={
+//     val cat_element      = WireInit(0.S(32.W))
+//     val comp_fn_value    = comp_func(sew).asSInt
+//     val comp_shift       = 0
+//     val output_comp_Data = VecInit(Seq.tabulate(config.count_lanes)(i => comp_fn_value(32 * (i + 1) - 1, 32 * i)))
+//     val comp_1bt_cn      = WireInit(VecInit(Seq.fill(32)(0.U(32.W))))
+//     for (i <- 1 to 31) {
+//     comp_1bt_cn(i) := ((io.vl_in) - (32.U * counter))  //subtract counter from vl
+//     when(comp_1bt_cn(i) === i.U) {
+//         cat_element  := Cat(io.vs3_in(0)(counter)(31,i), output_comp_Data(counter)(i-1, 0)).asSInt  //tailing logic 
+//     }.elsewhen(comp_1bt_cn(i)===32.U || (comp_1bt_cn(i)/32.U)>0.U){   // masking for body elements
+//         cat_element := output_comp_Data(counter).asSInt 
+//     }
+//     }
+//     cat_element
+// }
 
-// // def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
-// //     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-// //     cmp.io.a := vs1_in.asUInt
-// //     cmp.io.b := vs2_in.asUInt
+// def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
+//     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+//     cmp.io.a := vs1_in.asUInt
+//     cmp.io.b := vs2_in.asUInt
 
-// //     // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
-// //     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
-// //     when (opType === vmfeq || opType === vmfne) {
-// //         cmp.io.signaling := false.B
-// //     }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
-// //         cmp.io.signaling := true.B
-// //     }.otherwise {
-// //         cmp.io.signaling := false.B
-// //     } 
+//     // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
+//     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
+//     when (opType === vmfeq || opType === vmfne) {
+//         cmp.io.signaling := false.B
+//     }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
+//         cmp.io.signaling := true.B
+//     }.otherwise {
+//         cmp.io.signaling := false.B
+//     } 
 
-// //     val result = WireDefault(false.B)
-// //     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
-// //     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
-// //     val anyNaN = rawA.isNaN || rawB.isNaN
+//     val result = WireDefault(false.B)
+//     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt) 
+//     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt) 
+//     val anyNaN = rawA.isNaN || rawB.isNaN
 
-// //     switch(opType) {
-// //         is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
-// //         is(vmfne) { result := !(cmp.io.eq) || anyNaN }
-// //         is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
-// //         is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
-// //         is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
-// //         is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
-// //     }
+//     switch(opType) {
+//         is(vmfeq) { result := Mux(anyNaN, false.B, cmp.io.eq) }
+//         is(vmfne) { result := !(cmp.io.eq) || anyNaN }
+//         is(vmflt) { result := Mux(anyNaN, false.B, cmp.io.lt) }
+//         is(vmfle) { result := Mux(anyNaN, false.B, !(cmp.io.gt)) }
+//         is(vmfgt) { result := Mux(anyNaN, false.B, cmp.io.gt) }
+//         is(vmfge) { result := Mux(anyNaN, false.B, !(cmp.io.lt)) }
+//     }
 
-// //     exception_reg := cmp.io.exceptionFlags
-// //     result
-// // }
+//     exception_reg := cmp.io.exceptionFlags
+//     result
+// }
 
-// // def Comparison(vs1_in: SInt, vs2_in: SInt): Bool = {
-// //     MuxLookup(io.alu_ctrl, false.B, Seq(
-// //         vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
-// //         vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
-// //         vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
-// //         vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
-// //         vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
-// //         vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
-// //     ))
-// // }
+// def Comparison(vs1_in: SInt, vs2_in: SInt): Bool = {
+//     MuxLookup(io.alu_ctrl, false.B, Seq(
+//         vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
+//         vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
+//         vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
+//         vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
+//         vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
+//         vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
+//     ))
+// }
 
-// // def comp_func(sew: Int): UInt = {
-// //     val elementsPerLane = config.vlen / sew
-// //     val comparison_vec_bit_wires = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
-// //     val comp_1b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
-// //     val comp_0b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
-// //     val comp_vs3 = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
-// //     val vs3_bit = io.vs3_in.asUInt
-// //     var counter = 0
-// //     for (i <- 0 until config.count_lanes) {
-// //     for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
-// //         val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
-// //         val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
-// //         if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
-// //         val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)
-// //         val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
-// //         val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_elem.asUInt)
-// //         val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_elem.asUInt)
-// //         val comparison = Comparison(rec_vs1.asSInt, rec_vs2.asSInt)
-// //         comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
-// //         comp_vs3(counter) := (!vs0_mask(counter) && !io.mask_arith)
-// //         comp_0b(counter) := (io.mask_arith && !comparison)
-// //         comparison_vec_bit_wires(counter) := MuxCase(0.B, Array(
-// //             (comp_0b(counter) === 1.B) -> 0.B,
-// //             (comp_vs3(counter) === 1.B) -> vs3_bit(counter),
-// //             (comp_1b(counter) === 1.B) -> 1.B
-// //         ))
-// //         counter += 1
-// //         }
-// //     }
-// //     }
-// //     comparison_vec_bit_wires.asUInt
-// // }
+// def comp_func(sew: Int): UInt = {
+//     val elementsPerLane = config.vlen / sew
+//     val comparison_vec_bit_wires = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_1b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_0b = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val comp_vs3 = WireInit(VecInit(Seq.fill(config.vlen)(0.B)))
+//     val vs3_bit = io.vs3_in.asUInt
+//     var counter = 0
+//     for (i <- 0 until config.count_lanes) {
+//     for (elem_idx <- 0 until elementsPerLane) {   //for sew/masking
+//         val startBit = elem_idx * sew   //tells elements bits a/cc to sew 
+//         val endBit = (elem_idx + 1) * sew - 1    //define that (e.g: sew=8, it define (15:8)(7:0))
+//         if (endBit < io.vs1_in(i).getWidth && endBit < io.vs2_in(i).getWidth) {
+//         val vs1_elem = io.vs1_in(i).asUInt()(endBit, startBit)
+//         val vs2_elem = io.vs2_in(i).asUInt()(endBit, startBit)   //in this finally extract these bits: (15:8)(7:0)
+//         val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_elem.asUInt)
+//         val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_elem.asUInt)
+//         val comparison = Comparison(rec_vs1.asSInt, rec_vs2.asSInt)
+//         comp_1b(counter) := (io.mask_arith && comparison) || (!io.mask_arith && comparison && vs0_mask(counter))
+//         comp_vs3(counter) := (!vs0_mask(counter) && !io.mask_arith)
+//         comp_0b(counter) := (io.mask_arith && !comparison)
+//         comparison_vec_bit_wires(counter) := MuxCase(0.B, Array(
+//             (comp_0b(counter) === 1.B) -> 0.B,
+//             (comp_vs3(counter) === 1.B) -> vs3_bit(counter),
+//             (comp_1b(counter) === 1.B) -> 1.B
+//         ))
+//         counter += 1
+//         }
+//     }
+//     }
+//     comparison_vec_bit_wires.asUInt
+// }
 
 
 // // //SIGN INJECTION INSTRUCTIONS
-// // def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
-// //     val sign_inject_result = WireDefault(vs2_in)
-// //     val sign_vs1 = vs1_in.asUInt()(31)
-// //     val sign_vs2 = vs2_in.asUInt()(31)
+// def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
+//     val sign_inject_result = WireDefault(vs2_in)
+//     val sign_vs1 = vs1_in.asUInt()(31)
+//     val sign_vs2 = vs2_in.asUInt()(31)
 
-// //     val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
-// //         vfsgnj  -> sign_vs1,
-// //         vfsgnjn -> ~sign_vs1,
-// //         vfsgnjx -> (sign_vs1 ^ sign_vs2)
-// //     ))
-// //     val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
-// //     val final_bits = Cat(new_sign, magnitude)
-// //     sign_inject_result := final_bits.asSInt
-// //     sign_inject_result
-// // }
+//     val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
+//         vfsgnj  -> sign_vs1,
+//         vfsgnjn -> ~sign_vs1,
+//         vfsgnjx -> (sign_vs1 ^ sign_vs2)
+//     ))
+//     val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
+//     val final_bits = Cat(new_sign, magnitude)
+//     sign_inject_result := final_bits.asSInt
+//     sign_inject_result
+// }
 
 
 // // //MOVE & MERGE INSTRUCTIONS
-// // def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool): SInt = {
-// //     Mux(is_vfmv, vs1, Mux(mask_vs0, vs1, vs2))      // vfmv.v.f: always scalar; vfmerge.vfm: mask decides
-// // }
+// def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool): SInt = {
+//     Mux(is_vfmv, vs1, Mux(mask_vs0, vs1, vs2))      // vfmv.v.f: always scalar; vfmerge.vfm: mask decides
+// }
 
 
 // // //REDUCTION INSTRUCTIONS
-// // def reduction_add(sum: SInt, vs2_in: SInt): SInt = {
-// //     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, sum.asUInt)
-// //     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-// //     add.io.a := recA
-// //     add.io.b := recB
-// //     add.io.subOp := false.B
-// //     add.io.roundingMode := roundingMode
-// //     add.io.detectTininess := detectTininess
-// //     exception_reg := add.io.exceptionFlags
-// //     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
-// // }
+// def reduction_add(sum: SInt, vs2_in: SInt): SInt = {
+//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, sum.asUInt)
+//     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+//     add.io.a := recA
+//     add.io.b := recB
+//     add.io.subOp := false.B
+//     add.io.roundingMode := roundingMode
+//     add.io.detectTininess := detectTininess
+//     exception_reg := add.io.exceptionFlags
+//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
+// }
 
 // // //  Reduction tree over all active elements (vfredusum)
-// // def tree_reduce(elements: Vec[SInt], count: Int): SInt = {
-// //     if (count == 0) {              // If no active element
-// //         io.vs1_in(0)(0)
-// //     } else if (count == 1) {       // If only one active element
-// //         reduction_add(io.vs1_in(0)(0), elements(0))
-// //     } else {                       // Building the next level by summing pairs
-// //         val next_level = Wire(Vec((count+1)/2, SInt(config.XLEN.W)))
-// //         for (k <- 0 until count/2) {
-// //             next_level(k) := reduction_add(elements(2*k), elements(2*k+1))
-// //         }
-// //         if (count % 2 == 1) {      // If we have an odd count
-// //             next_level(count/2) := elements(count-1)
-// //         }
-// //         tree_reduce(next_level, (count+1)/2)
-// //     }
-// // }
+// def tree_reduce(elements: Vec[SInt], count: Int): SInt = {
+//     if (count == 0) {              // If no active element
+//         io.vs1_in(0)(0)
+//     } else if (count == 1) {       // If only one active element
+//         reduction_add(io.vs1_in(0)(0), elements(0))
+//     } else {                       // Building the next level by summing pairs
+//         val next_level = Wire(Vec((count+1)/2, SInt(config.XLEN.W)))
+//         for (k <- 0 until count/2) {
+//             next_level(k) := reduction_add(elements(2*k), elements(2*k+1))
+//         }
+//         if (count % 2 == 1) {      // If we have an odd count
+//             next_level(count/2) := elements(count-1)
+//         }
+//         tree_reduce(next_level, (count+1)/2)
+//     }
+// }
 
-// // def fp_maxmin_reduc(a: SInt, b: SInt): SInt = {
-// //     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, a.asUInt)
-// //     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, b.asUInt)
-// //     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-// //     cmp.io.a := recA
-// //     cmp.io.b := recB
-// //     cmp.io.signaling := true.B
-// //     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
-// //     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
-// //     // If a is NaN, return a (stays NaN); if b is NaN, return b; else max(a, b)
-// //     // If a is NaN, propagate it; else if b is NaN, propagate it; else pick the max
-// //     val result = WireDefault(a) // Initialize with 'a' by default (can be any default)
+// def fp_maxmin_reduc(a: SInt, b: SInt): SInt = {
+//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, a.asUInt)
+//     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, b.asUInt)
+//     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+//     cmp.io.a := recA
+//     cmp.io.b := recB
+//     cmp.io.signaling := true.B
+//     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+//     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recB)
+//     // If a is NaN, return a (stays NaN); if b is NaN, return b; else max(a, b)
+//     // If a is NaN, propagate it; else if b is NaN, propagate it; else pick the max
+//     val result = WireDefault(a) // Initialize with 'a' by default (can be any default)
 
-// //     when (reduc_max_bit) {
-// //         result := Mux(rawA.isNaN, a,
-// //                   Mux(rawB.isNaN, b,
-// //                       Mux(cmp.io.gt, a, b)
-// //                   )
-// //               )
-// //     } .elsewhen (reduc_min_bit) {
-// //         result := Mux(rawA.isNaN, a,
-// //                   Mux(rawB.isNaN, b,
-// //                       Mux(cmp.io.lt, a, b)
-// //                   )
-// //               )
-// //     }
+//     when (reduc_max_bit) {
+//         result := Mux(rawA.isNaN, a,
+//                   Mux(rawB.isNaN, b,
+//                       Mux(cmp.io.gt, a, b)
+//                   )
+//               )
+//     } .elsewhen (reduc_min_bit) {
+//         result := Mux(rawA.isNaN, a,
+//                   Mux(rawB.isNaN, b,
+//                       Mux(cmp.io.lt, a, b)
+//                   )
+//               )
+//     }
 
-// //     result
-// // }
+//     result
+// }
 
 
 
@@ -494,27 +459,21 @@
 //     val isVfmv = isVfmergeOrVfmv && io.mask_arith && vs2_is_v0
 //     val isVfmerge = isVfmergeOrVfmv && !io.mask_arith 
 
-//     // when(isVfmergeOrVfmv && (isVfmv || isVfmerge)) {
-//     //     vec_sew32_b := vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0)
-//     // }.otherwise {     
-//     //     val computed_result = Mux(isConversionOp,
-//     //                         Conversion(vs2.asSInt),
-//     //                         Mux(isUnaryArithmeticOp,
-//     //                             ArithmeticUnary(vs2.asSInt),
-//     //                             Mux(isSignInject,
-//     //                             signInject(vs1.asSInt, vs2.asSInt),
-//     //                             Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
-//     //                         )
-//     //                 )
-//     //             ) 
-//     //     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
-//     // }
-
-     
-//     // ************  for testing ..will remove once passed 
-//      val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt),Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt))
-//      vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
-//     // *****************
+//     when(isVfmergeOrVfmv && (isVfmv || isVfmerge)) {
+//         vec_sew32_b := vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0)
+//     }.otherwise {     
+//         val computed_result = Mux(isConversionOp,
+//                             Conversion(vs2.asSInt),
+//                             Mux(isUnaryArithmeticOp,
+//                                 ArithmeticUnary(vs2.asSInt),
+//                                 Mux(isSignInject,
+//                                 signInject(vs1.asSInt, vs2.asSInt),
+//                                 Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
+//                             )
+//                     )
+//                 ) 
+//         vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+//     }
 
 //     vec_sew32_result := vec_sew32_b
 //     vec_sew32_result
@@ -535,72 +494,71 @@
 // val reduc_min_bit = io.alu_ctrl === vfredmin
 // val reduc_op_bit = io.alu_ctrl === vfredmax || io.alu_ctrl === vfredmin
 
-// // for (i <- 0 until 8) {
-// //     for (j <- 0 until config.count_lanes) {
-// //         io.vsd_out(i)(j) := 0.S  // safe default 
-// //     }
-// // }
+// for (i <- 0 until 8) {
+//     for (j <- 0 until config.count_lanes) {
+//         io.vsd_out(i)(j) := 0.S  // safe default 
+//     }
+// }
 
 // when(io.sew==="b010".U){ // sew = 32   
-//     // when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
-//     //     for (i <- 0 until 8) {
-//     //         for (j <- 0 until config.count_lanes) {
-//     //             if (i == 0 && j == 0) {
-//     //                 if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
-//     //                     io.vsd_out(0)(0) := io.vs2_in(0)(0)
-//     //                 } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
-//     //                     io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-//     //                 }
-//     //             }else {
-//     //                 if (sm_f_s == 1.B) {
-//     //                     io.vsd_out(i)(j) := 0.S 
-//     //                 } else if (sm_s_f == 1.B) {
-//     //                     io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//     //                 }
-//     //             }
-//     //     }   }
+//     when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
+//         for (i <- 0 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//                 if (i == 0 && j == 0) {
+//                     if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+//                         io.vsd_out(0)(0) := io.vs2_in(0)(0)
+//                     } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+//                         io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+//                     }
+//                 }else {
+//                     if (sm_f_s == 1.B) {
+//                         io.vsd_out(i)(j) := 0.S 
+//                     } else if (sm_s_f == 1.B) {
+//                         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//                     }
+//                 }
+//         }   }
 
-//     // }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
-//     //     //vfredosum
-//     //     var sum = io.vs1_in(0)(0).asSInt
-//     //     var element_count = 0
-//     //     val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
+//     }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
+//         //vfredosum
+//         var sum = io.vs1_in(0)(0).asSInt
+//         var element_count = 0
+//         val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
         
-//     //     //vfredusum
-//     //     val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
-//     //     for (i <- 0 until (8 * config.count_lanes)) {
-//     //         temp_elements(i) := 0.S
-//     //     }
-//     //     var temp_idx = 0
-//     //     for (i <- 0 until 8) {
-//     //         for (j <- 0 until config.count_lanes) {
-//     //             val idx = i * config.count_lanes + j
-//     //             val mask = vs0_mask(idx)
-//     //             val inRange = io.vl_in > element_count.U
-//     //             val active = inRange && (io.mask_arith || mask.asBool)
-//     //             active_vec(idx) := active 
-//     //             if (active == 1.B) {
-//     //                 if (reduc_usum_bit == 1.B) {
-//     //                     temp_elements(temp_idx) := io.vs2_in(i)(j)
-//     //                     temp_idx += 1
-//     //                 } else if (reduc_osum_bit == 1.B) {
-//     //                     sum = reduction_add(sum, io.vs2_in(i)(j))
-//     //                 } else if (reduc_bit == 1.B) {
-//     //                     sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
-//     //                 }
-//     //             }   
-//     //             if (!(i == 0 && j == 0)) {
-//     //                 io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//     //             }
-//     //             element_count = element_count + 1
-//     //         }
-//     //     }
-//     //     val found_active = active_vec.reduce(_ || _) 
-//     //     val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
-//     //     io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
+//         //vfredusum
+//         val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
+//         for (i <- 0 until (8 * config.count_lanes)) {
+//             temp_elements(i) := 0.S
+//         }
+//         var temp_idx = 0
+//         for (i <- 0 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//                 val idx = i * config.count_lanes + j
+//                 val mask = vs0_mask(idx)
+//                 val inRange = io.vl_in > element_count.U
+//                 val active = inRange && (io.mask_arith || mask.asBool)
+//                 active_vec(idx) := active 
+//                 if (active == 1.B) {
+//                     if (reduc_usum_bit == 1.B) {
+//                         temp_elements(temp_idx) := io.vs2_in(i)(j)
+//                         temp_idx += 1
+//                     } else if (reduc_osum_bit == 1.B) {
+//                         sum = reduction_add(sum, io.vs2_in(i)(j))
+//                     } else if (reduc_bit == 1.B) {
+//                         sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
+//                     }
+//                 }   
+//                 if (!(i == 0 && j == 0)) {
+//                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//                 }
+//                 element_count = element_count + 1
+//             }
+//         }
+//         val found_active = active_vec.reduce(_ || _) 
+//         val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
+//         io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
 
-//     // }.else
-//     when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
+//     }.elsewhen(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
 //         var vl_counter = 1
 //         for (i <- 0 until 8) {
 //             for (j <- 0 until config.count_lanes) {
@@ -616,31 +574,18 @@
 //     }
 
 //     }.otherwise{     //comp_bit === 1.B
-//         // var vl_counter1 = 1
-//         // var counter2 = 0  
-//         // for (j <- 0 until config.count_lanes) {
-//         //     io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
-//         //     vl_counter1    = vl_counter1 + 32
-//         //     counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
-//         //     }
-//         //     for (i <- 1 until 8) {
-//         //     for (j <- 0 until config.count_lanes) {
-//         //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//         //     }
-//         //     }
-        
-
-//             // ************  for testing ..will remove once passed 
-//             var vl_counter = 1
-//                 for (i <- 0 until 8) {
-//                 for (j <- 0 until config.count_lanes) {
-//                     val idx = (i * config.count_lanes) + j
-//                     val mask = vs0_mask(idx)
-//                     io.vsd_out(i)(j) :=0.S 
-//                     vl_counter = vl_counter + 1
-//                 }
-//                 }
-//             // ***************    
+//         var vl_counter1 = 1
+//         var counter2 = 0  
+//         for (j <- 0 until config.count_lanes) {
+//             io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+//             vl_counter1    = vl_counter1 + 32
+//             counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
+//             }
+//             for (i <- 1 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//                 io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//             }
+//             }
         
 //         }
 // }.otherwise{

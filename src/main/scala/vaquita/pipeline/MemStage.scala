@@ -21,6 +21,8 @@ class MemStage(implicit val config: VaquitaConfig) extends Module {
     val mem_rs1_data_in = Input(SInt(32.W))
     val mem_vs1_data_vs3_in = Input(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
     val vs3_data_out = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
+    val mem_valid_div_in = Input(Bool())
+    val mem_valid_div_out = Output(Bool())
     })
   val initValue     = VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W)))))
   val vsd_data      = RegNext(WireDefault(initValue))
@@ -36,4 +38,5 @@ class MemStage(implicit val config: VaquitaConfig) extends Module {
   io.mem_stage_addr     := RegNext(io.mem_rs1_data_in.asUInt)
   io.mem_reg_write_out  := RegNext(io.mem_reg_write_in)
   io.mem_read_en_out    := RegNext(io.read_en)
+  io.mem_valid_div_out  := RegNext(io.mem_valid_div_in)
 }

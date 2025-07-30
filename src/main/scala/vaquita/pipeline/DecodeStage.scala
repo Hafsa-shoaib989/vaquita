@@ -14,6 +14,7 @@ class DecodeStageIO(implicit val config: VaquitaConfig) extends Bundle {
     val rs1_data        = Input(SInt(32.W))
     val wb_reg_write_in = Input(Bool())
     val vl_rs1_in       = Input(UInt(32.W))
+    val de_valid_div    = Input(Bool())
 
     val sew_out         = Output(UInt(5.W))
     val alu_op_out      = Output(UInt(6.W))
@@ -69,6 +70,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
     vec_reg_module.io.vtype            := vcsr_module.io.vtype_out
     vec_reg_module.io.wb_vd_addr       := io.de_io.wb_de_instr_in(11, 7)
     vec_reg_module.io.store_vs3_to_mem := vec_cu_module.io.store_vs3_to_mem
+    vec_reg_module.io.fp_valid_div     := io.de_io.de_valid_div
 
     /** Vector CSR Module Wiring */
     vcsr_module.io.vec_config := vec_cu_module.io.vec_config

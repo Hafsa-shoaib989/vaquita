@@ -58,3 +58,25 @@ lazy val root = (project in file(".")).settings(
   scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
   javacOptions ++= javacOptionsVersion(scalaVersion.value)
 ).dependsOn(hardfloat)
+
+
+
+
+
+// // FOR INTEGRATING WITH NRV ...
+// scalaVersion     := "2.13.10"
+// version          := "3.2.0"
+// organization     := "com.github.merledu"
+// name             := "vaquita"
+// libraryDependencies ++= Seq(
+//   "edu.berkeley.cs" %% "chisel3" % "3.5.5",
+//   "edu.berkeley.cs" %% "chiseltest" % "0.5.6" % "test" // Updated chiseltest version
+// )
+// scalacOptions ++= Seq(
+//   "-Xsource:2.13.0",
+//   "-language:reflectiveCalls",
+//   "-deprecation",
+//   "-feature",
+//   "-Xcheckinit"
+// )
+// addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5.6" cross CrossVersion.full)
