@@ -172,31 +172,30 @@ def applyArithmeticOp(vs1_in: SInt, vs2_in: SInt, opType: UInt, vsd: SInt): SInt
     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
 }
 
-def Division(vs1_in: SInt, vs2_in: SInt): (SInt,Bool) = {
-    val recOut1 = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
-    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
-    val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-    val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
-    div.io.a := recA
-    div.io.b := recB
-    div.io.sqrtOp := false.B
-    // when(div.io.inReady && (io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv)) {
-    when(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
-        div.io.inValid := true.B
-    }.otherwise {
-        div.io.inValid := false.B
-    }
-    div.io.roundingMode := roundingMode
-    div.io.detectTininess := detectTininess
-    val internalReady = WireDefault(true.B)
-    internalReady := div.io.inReady 
-    recOut1 := div.io.out.asSInt
-    exception_reg := div.io.exceptionFlags
+// def Division(vs1_in: SInt, vs2_in: SInt, mask_vs0: Bool): (SInt,Bool) = {
+//     val recOut1 = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+//     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+//     val div = Module(new DivSqrtRecFN_small(FPConfig.expWidth, FPConfig.sigWidth, 0))
+//     div.io.a := recA
+//     div.io.b := recB
+//     div.io.sqrtOp := false.B
+//     when((io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) && (div.io.inReady ^ div.io.outValid_div) && !(mask_vs0===0.B && io.mask_arith===0.B)) {
+//         div.io.inValid := true.B
+//     }.otherwise {
+//         div.io.inValid := false.B
+//     }
+//     div.io.roundingMode := roundingMode
+//     div.io.detectTininess := detectTininess
+//     dontTouch(div.io.inReady)
+   
+//     recOut1 := div.io.out.asSInt
+//     exception_reg := div.io.exceptionFlags
 
-    (fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut1).asSInt, div.io.outValid_div)
-}
+//     (fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut1).asSInt, div.io.outValid_div)
+// }
 
-def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): (SInt, Bool) = {
+def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt, mask_vs0: Bool): (SInt, Bool) = {
     val result = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
     val flag = WireInit(0.B) 
     when (!(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv)) {
@@ -218,16 +217,17 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): (SInt, Bool) = {
             vfnmsub         -> applyArithmeticOp(vs1_in, vs2_in, vfnmsub, vsd)
     ))
     flag := 0.B
-    }.elsewhen(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
-        val (w, v) = Division(vs2_in, vs1_in)
-        result := w
-        flag := v
+    // }.elsewhen(io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv) {
+    //     val (w, v) = Division(vs2_in, vs1_in, mask_vs0)
+    //     result := w
+    //     flag := v
     }.otherwise {
         result := 0.S
         flag := 0.B
     }
     (result, flag)
 }
+
 
 
 
@@ -331,8 +331,6 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): (SInt, Bool) = {
 
 
 
-
-
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): (SInt, Bool)={
     val vsetvli_mask = 0.B
@@ -354,7 +352,7 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): (SInt, Bool)={
 
      
     // ************  for testing ..will remove once passed 
-     val (arithmetic_result, valid_div_out) = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt)
+     val (arithmetic_result, valid_div_out) = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
      val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt),arithmetic_result)
      vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
     // *****************
@@ -379,8 +377,8 @@ val reduc_min_bit = io.alu_ctrl === vfredmin
 val reduc_op_bit = io.alu_ctrl === vfredmax || io.alu_ctrl === vfredmin
 val div_bit = io.alu_ctrl === vfdiv || io.alu_ctrl === vfrdiv
 
-val divBusy   = RegInit(VecInit(Seq.fill(8) {VecInit(Seq.fill(config.count_lanes)(false.B))}))
-val divValues = RegInit(VecInit(Seq.fill(8){VecInit(Seq.fill(config.count_lanes) {0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W)})}))
+val divBusy   = WireInit(VecInit(Seq.fill(8) {VecInit(Seq.fill(config.count_lanes)(false.B))}))
+val divValues = WireInit(VecInit(Seq.fill(8){VecInit(Seq.fill(config.count_lanes) {0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W)})}))
 io.valid_dive := 0.B
 
 when(io.sew==="b010".U){ // sew = 32   
@@ -406,21 +404,39 @@ when(io.sew==="b010".U){ // sew = 32
                 for (j <- 0 until config.count_lanes) {
                 val idx = (i * config.count_lanes) + j
                 val mask = vs0_mask(idx)
-                val (a, div_b) = sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask)
+                val (a, div_b) = sew_arit_32(io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask)
                 dontTouch(div_b)
-                when (div_b === 1.B || mask === 0.B) {
+                when (div_b === 1.B || (mask===0.B && io.mask_arith===0.B)) {
                     divBusy(i)(j) := 1.B
                     divValues(i)(j) := a
-                }.otherwise {
-                    divBusy(i)(j) := DontCare
-                    divValues(i)(j) := DontCare
-                }   
+                }
+                // .otherwise {
+                //     divBusy(i)(j) := DontCare
+                //     divValues(i)(j) := DontCare
+                // }   
                 vl_counter = vl_counter + 1
                 }
             }
             val allDivBusy = divBusy.flatten.reduce(_ && _)
             io.valid_dive := allDivBusy
-            io.vsd_out <> divValues
+
+            //iss mein sahi chl rhaaaaa (bus clock cycles dekhni ...sahi clk pe araah ya nhi)
+            // io.vsd_out <> divValues     
+
+            when (io.valid_dive) {
+                io.vsd_out <> divValues
+            }.otherwise {
+                var vl_counter = 1
+                for (i <- 0 until 8) {
+                for (j <- 0 until config.count_lanes) {
+                    val idx = (i * config.count_lanes) + j
+                    val mask = vs0_mask(idx)
+                    io.vsd_out(i)(j) :=0.S 
+                    vl_counter = vl_counter + 1
+                }
+                }
+            }
+                        
         }.otherwise{
             var vl_counter = 1
             for (i <- 0 until 8) {

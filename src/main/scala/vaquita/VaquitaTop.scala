@@ -199,6 +199,7 @@ object VaquitaDriver {
 //         val dmemRsp = Flipped(Decoupled(new MemResponseIO))
 //         val hazard_rs1_data_in = Input(UInt(32.W))
 //         val vl_rs1_out = Output(UInt(32.W))
+//         val fpdiv_valid = Output(Bool())
         
 //     })
 //     implicit val vec_config = VaquitaConfig (256,32,32,8,true)
@@ -232,6 +233,7 @@ object VaquitaDriver {
 //     DE.de_io.rs1_data := io.rs1_data
 //     DE.de_io.wb_reg_write_in  := WB.wb_reg_write_out
 //     DE.de_io.de_valid_div := WB.wb_valid_div_out
+//     io.fpdiv_valid := WB.wb_valid_div_out
 
 //     // -----------------excute stage ---------------------------------
 //     EX.ex_fpu_signal_in := DE.de_io.de_fpu_signal
