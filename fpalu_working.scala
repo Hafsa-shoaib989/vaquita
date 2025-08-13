@@ -94,19 +94,47 @@
 //     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
 //     val recC = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vsd.asUInt)
 
+
+//     // ************  for testing ..will remove once passed 
+//     val preservedOpType = WireDefault(opType)
+//     dontTouch(preservedOpType)
+//     dontTouch(recOut)
+//     dontTouch(recA)
+//     dontTouch(recB)
+//     // ******************
+
+
 //     opType match {
 //         case `vfadd` | `vfsub` | `vfrsub` =>
 //             add.io.a := recA
 //             add.io.b := recB
 //             when (opType === vfsub || opType === vfrsub) {
-//                 add.io.subOp := true.B
+//                 // add.io.subOp := true.B
+             
+             
+//                 // ************  for testing ..will remove once passed 
+//                 add.io.subOp := false.B
+//                 //**************
+
+
 //             } .otherwise {
 //                 add.io.subOp := false.B
 //             } 
 //             add.io.roundingMode := roundingMode
 //             add.io.detectTininess := detectTininess
-//             recOut := add.io.out.asSInt
+//             // recOut := add.io.out.asSInt
 //             exception_reg := add.io.exceptionFlags
+
+
+//             // ************  for testing ..will remove once passed 
+//             recOut := fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out.asSInt).asSInt
+//             dontTouch(add.io.a)  
+//             dontTouch(add.io.b)  
+//             dontTouch(add.io.subOp)  
+//             dontTouch(add.io.out)  
+//             dontTouch(recOut)
+//             // *********************
+
 
 //         case `vfmul` =>
 //             mul.io.a := recA
@@ -196,7 +224,14 @@
 //         case _ =>
 //         recOut := 0.S
 //     }
-//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
+//     // fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, recOut).asSInt
+
+
+//     // ************  for testing ..will remove once passed 
+//     recOut
+//     //**************
+
+
 // }
 
 // def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt): SInt = {
@@ -353,7 +388,7 @@
 // }
 
 
-// // //SIGN INJECTION INSTRUCTIONS
+// //SIGN INJECTION INSTRUCTIONS
 // def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
 //     val sign_inject_result = WireDefault(vs2_in)
 //     val sign_vs1 = vs1_in.asUInt()(31)
@@ -371,13 +406,13 @@
 // }
 
 
-// // //MOVE & MERGE INSTRUCTIONS
+// //MOVE & MERGE INSTRUCTIONS
 // def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool): SInt = {
 //     Mux(is_vfmv, vs1, Mux(mask_vs0, vs1, vs2))      // vfmv.v.f: always scalar; vfmerge.vfm: mask decides
 // }
 
 
-// // //REDUCTION INSTRUCTIONS
+// //REDUCTION INSTRUCTIONS
 // def reduction_add(sum: SInt, vs2_in: SInt): SInt = {
 //     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, sum.asUInt)
 //     val recB = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
@@ -390,7 +425,7 @@
 //     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, add.io.out).asSInt
 // }
 
-// // //  Reduction tree over all active elements (vfredusum)
+// //  Reduction tree over all active elements (vfredusum)
 // def tree_reduce(elements: Vec[SInt], count: Int): SInt = {
 //     if (count == 0) {              // If no active element
 //         io.vs1_in(0)(0)
@@ -475,6 +510,12 @@
 //         vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
 //     }
 
+     
+//     // // ************  for testing ..will remove once passed 
+//     //  val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt),Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt))
+//     //  vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+//     // // *****************
+
 //     vec_sew32_result := vec_sew32_b
 //     vec_sew32_result
 // }
@@ -494,71 +535,72 @@
 // val reduc_min_bit = io.alu_ctrl === vfredmin
 // val reduc_op_bit = io.alu_ctrl === vfredmax || io.alu_ctrl === vfredmin
 
-// for (i <- 0 until 8) {
-//     for (j <- 0 until config.count_lanes) {
-//         io.vsd_out(i)(j) := 0.S  // safe default 
-//     }
-// }
+// // for (i <- 0 until 8) {
+// //     for (j <- 0 until config.count_lanes) {
+// //         io.vsd_out(i)(j) := 0.S  // safe default 
+// //     }
+// // }
 
 // when(io.sew==="b010".U){ // sew = 32   
-//     when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
-//         for (i <- 0 until 8) {
-//             for (j <- 0 until config.count_lanes) {
-//                 if (i == 0 && j == 0) {
-//                     if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
-//                         io.vsd_out(0)(0) := io.vs2_in(0)(0)
-//                     } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
-//                         io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-//                     }
-//                 }else {
-//                     if (sm_f_s == 1.B) {
-//                         io.vsd_out(i)(j) := 0.S 
-//                     } else if (sm_s_f == 1.B) {
-//                         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//                     }
-//                 }
-//         }   }
+//     // when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
+//     //     for (i <- 0 until 8) {
+//     //         for (j <- 0 until config.count_lanes) {
+//     //             if (i == 0 && j == 0) {
+//     //                 if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+//     //                     io.vsd_out(0)(0) := io.vs2_in(0)(0)
+//     //                 } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+//     //                     io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+//     //                 }
+//     //             }else {
+//     //                 if (sm_f_s == 1.B) {
+//     //                     io.vsd_out(i)(j) := 0.S 
+//     //                 } else if (sm_s_f == 1.B) {
+//     //                     io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//     //                 }
+//     //             }
+//     //     }   }
 
-//     }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
-//         //vfredosum
-//         var sum = io.vs1_in(0)(0).asSInt
-//         var element_count = 0
-//         val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
+//     // }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
+//     //     //vfredosum
+//     //     var sum = io.vs1_in(0)(0).asSInt
+//     //     var element_count = 0
+//     //     val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
         
-//         //vfredusum
-//         val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
-//         for (i <- 0 until (8 * config.count_lanes)) {
-//             temp_elements(i) := 0.S
-//         }
-//         var temp_idx = 0
-//         for (i <- 0 until 8) {
-//             for (j <- 0 until config.count_lanes) {
-//                 val idx = i * config.count_lanes + j
-//                 val mask = vs0_mask(idx)
-//                 val inRange = io.vl_in > element_count.U
-//                 val active = inRange && (io.mask_arith || mask.asBool)
-//                 active_vec(idx) := active 
-//                 if (active == 1.B) {
-//                     if (reduc_usum_bit == 1.B) {
-//                         temp_elements(temp_idx) := io.vs2_in(i)(j)
-//                         temp_idx += 1
-//                     } else if (reduc_osum_bit == 1.B) {
-//                         sum = reduction_add(sum, io.vs2_in(i)(j))
-//                     } else if (reduc_bit == 1.B) {
-//                         sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
-//                     }
-//                 }   
-//                 if (!(i == 0 && j == 0)) {
-//                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//                 }
-//                 element_count = element_count + 1
-//             }
-//         }
-//         val found_active = active_vec.reduce(_ || _) 
-//         val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
-//         io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
+//     //     //vfredusum
+//     //     val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
+//     //     for (i <- 0 until (8 * config.count_lanes)) {
+//     //         temp_elements(i) := 0.S
+//     //     }
+//     //     var temp_idx = 0
+//     //     for (i <- 0 until 8) {
+//     //         for (j <- 0 until config.count_lanes) {
+//     //             val idx = i * config.count_lanes + j
+//     //             val mask = vs0_mask(idx)
+//     //             val inRange = io.vl_in > element_count.U
+//     //             val active = inRange && (io.mask_arith || mask.asBool)
+//     //             active_vec(idx) := active 
+//     //             if (active == 1.B) {
+//     //                 if (reduc_usum_bit == 1.B) {
+//     //                     temp_elements(temp_idx) := io.vs2_in(i)(j)
+//     //                     temp_idx += 1
+//     //                 } else if (reduc_osum_bit == 1.B) {
+//     //                     sum = reduction_add(sum, io.vs2_in(i)(j))
+//     //                 } else if (reduc_bit == 1.B) {
+//     //                     sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
+//     //                 }
+//     //             }   
+//     //             if (!(i == 0 && j == 0)) {
+//     //                 io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//     //             }
+//     //             element_count = element_count + 1
+//     //         }
+//     //     }
+//     //     val found_active = active_vec.reduce(_ || _) 
+//     //     val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
+//     //     io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
 
-//     }.elsewhen(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
+//     // }.else
+//     when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
 //         var vl_counter = 1
 //         for (i <- 0 until 8) {
 //             for (j <- 0 until config.count_lanes) {
@@ -574,18 +616,31 @@
 //     }
 
 //     }.otherwise{     //comp_bit === 1.B
-//         var vl_counter1 = 1
-//         var counter2 = 0  
-//         for (j <- 0 until config.count_lanes) {
-//             io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
-//             vl_counter1    = vl_counter1 + 32
-//             counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
-//             }
-//             for (i <- 1 until 8) {
-//             for (j <- 0 until config.count_lanes) {
-//                 io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//             }
-//             }
+//         // var vl_counter1 = 1
+//         // var counter2 = 0  
+//         // for (j <- 0 until config.count_lanes) {
+//         //     io.vsd_out(0)(j) := Mux(io.vl_in > vl_counter1.U,comp_elem_fn(32,counter2.U), Mux(tail === 0.B, io.vs3_in(0)(j), Fill(32, 1.U).asSInt))
+//         //     vl_counter1    = vl_counter1 + 32
+//         //     counter2 = counter2 + 1  //increment until it reaches vl, when reaches: then tailing applied
+//         //     }
+//         //     for (i <- 1 until 8) {
+//         //     for (j <- 0 until config.count_lanes) {
+//         //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//         //     }
+//         //     }
+        
+
+//             // ************  for testing ..will remove once passed 
+//             var vl_counter = 1
+//                 for (i <- 0 until 8) {
+//                 for (j <- 0 until config.count_lanes) {
+//                     val idx = (i * config.count_lanes) + j
+//                     val mask = vs0_mask(idx)
+//                     io.vsd_out(i)(j) :=0.S 
+//                     vl_counter = vl_counter + 1
+//                 }
+//                 }
+//             // ***************    
         
 //         }
 // }.otherwise{

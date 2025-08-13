@@ -88,8 +88,8 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
 
  /** ALU Operation */
     when(fpu) { // FP
-        when(io.de_io.instr(31, 26) === "b010010".U) {
-            io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))  // Conversion operation
+        when(io.de_io.instr(31, 26) === "b010010".U || io.de_io.instr(31, 26) === "b010011".U) {
+            io.de_io.fp_conv_alu_op_out := Cat(io.de_io.instr(31, 26), io.de_io.instr(19, 15))  // Conversion / sqrt operation
         }.otherwise {
             io.de_io.fp_conv_alu_op_out := 0.U  // Reset if not conversion
         }
@@ -100,7 +100,7 @@ class DecodeStage(implicit val config: VaquitaConfig) extends Module {
             io.de_io.fp_scalarM_alu_op_out := 0.U  // Reset if not scalar move
         }
 
-        when(io.de_io.instr(31, 26) =/= "b010010".U && io.de_io.instr(31, 26) =/= "b010000".U) {
+        when(io.de_io.instr(31, 26) =/= "b010010".U && io.de_io.instr(31, 26) =/= "b010000".U  && io.de_io.instr(31, 26) =/= "b010011".U) {
             io.de_io.fp_alu_op_out := io.de_io.instr(31, 26)  // Set for general floating-point operations
         }.otherwise {
             io.de_io.fp_alu_op_out := 0.U  // Reset if not a general floating-point operation

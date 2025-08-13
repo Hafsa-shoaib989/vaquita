@@ -37,7 +37,9 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     // Default values
     setValues(false.B, "b11".U, false.B, false.B, false.B, false.B, false.B, false.B) 
 
-    val is_vfdiv = (io.instr(6,0) === "b1010111".U) && (io.instr(31,26) === "b100000".U || io.instr(31,26) === "b100001".U)
+
+    val is_vfdiv  = (io.instr(6,0)==="b1010111".U && (io.instr(14,12)==="b001".U || io.instr(14,12)==="b101".U) && (io.instr(31,26)==="b100000".U || io.instr(31,26)==="b100001".U))
+    val is_vfsqrt = (io.instr(6,0)==="b1010111".U && (io.instr(14,12)==="b001".U) && (io.instr(31,26)==="b010011".U) && (io.instr(19,15)==="b00000".U))
     
     // Integer vector instructions
     when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b111".U || io.instr(14,12) === "b000".U || io.instr(14,12) === "b011".U || io.instr(14,12) === "b100".U)) {
@@ -64,7 +66,7 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
     }
 
     // Floating point vector instructions
-    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && !is_vfdiv) {
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && !is_vfdiv && !is_vfsqrt) {
       switch(io.instr(6,0)) {  
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
@@ -74,7 +76,7 @@ class VecControlUnit(implicit val config: VaquitaConfig) extends Module {
         }
       }
     }
-    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && is_vfdiv) {
+    when(io.instr(6,0) === "b1010111".U && (io.instr(14,12) === "b001".U || io.instr(14,12) === "b101".U) && (is_vfdiv || is_vfsqrt)) {
       switch(io.instr(6,0)) {  
         is("b1010111".U) {   
         switch(io.instr(14,12)) {  
