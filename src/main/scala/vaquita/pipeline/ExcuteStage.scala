@@ -58,6 +58,7 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     vec_alu_module.io.vl_in := vsetvli_module.io.vl
     vec_fp_alu_module.io.vl_in := vsetvli_module.io.vl
     io.ex_valid_div_out :=  vec_fp_alu_module.io.valid_dive
+    vec_fp_alu_module.io.rs1_in := io.hazard_rs1
 
 
     val sew_selector = new SewSelector() 

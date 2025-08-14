@@ -20,7 +20,7 @@ object FPALUObj{
     val vfmin              = 4.U(6.W)
     val vfmax              = 6.U(6.W)
     val vmfeq              = 24.U(6.W)
-    val vmfne              = 58.U(6.W)
+    val vmfne              = 28.U(6.W)
     val vmflt              = 27.U(6.W)
     val vmfle              = 25.U(6.W)
     val vmfgt              = 29.U(6.W)
@@ -50,3 +50,5 @@ object FPALUObj{
     // VRFUNARY0
     val vfmv_s_f           = Cat("b010000".U(6.W), "b00000".U(5.W))
 }
+
+
