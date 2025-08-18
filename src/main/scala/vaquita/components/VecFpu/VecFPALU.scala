@@ -28,37 +28,37 @@ val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)      // convert into one array 
 val exception_reg = RegInit(0.U(5.W))
 
 
-// //CONVERSION INSTRUCTIONS
-// def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
-//     val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
-//     conv.io.signedIn := signed
-//     conv.io.in := vs2_in.asUInt  
-//     conv.io.roundingMode := 0.U
-//     conv.io.detectTininess := consts.tininess_afterRounding
-//     exception_reg := conv.io.exceptionFlags
-//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
-// }
+//CONVERSION INSTRUCTIONS
+def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
+    val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
+    conv.io.signedIn := signed
+    conv.io.in := vs2_in.asUInt  
+    conv.io.roundingMode := 0.U
+    conv.io.detectTininess := consts.tininess_afterRounding
+    exception_reg := conv.io.exceptionFlags
+    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
+}
 
-// def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
-//     val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
-//     val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
-//     conv.io.in := recFN
-//     conv.io.roundingMode := roundingMode 
-//     conv.io.signedOut := signed
-//     exception_reg := conv.io.intExceptionFlags
-//     conv.io.out.asSInt
-// }
+def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
+    val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
+    val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
+    conv.io.in := recFN
+    conv.io.roundingMode := roundingMode 
+    conv.io.signedOut := signed
+    exception_reg := conv.io.intExceptionFlags
+    conv.io.out.asSInt
+}
 
-// def Conversion(vs2_in: SInt): SInt = {
-//     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
-//         vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
-//         vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
-//         vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
-//         vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
-//         vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U), 
-//         vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
-//     ))
-// }
+def Conversion(vs2_in: SInt): SInt = {
+    MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
+        vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
+        vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
+        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
+        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
+        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U), 
+        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
+    ))
+}
 
 
 //ARITHMETIC INSTRUCTIONS
@@ -335,6 +335,23 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt, mask_vs0: Bool): SInt = {
 // 	}
 
 
+//SIGN INJECTION INSTRUCTIONS
+def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
+    val sign_inject_result = WireDefault(vs2_in)
+    val sign_vs1 = vs1_in.asUInt()(31)
+    val sign_vs2 = vs2_in.asUInt()(31)
+
+    val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
+        vfsgnj  -> sign_vs1,
+        vfsgnjn -> ~sign_vs1,
+        vfsgnjx -> (sign_vs1 ^ sign_vs2)
+    ))
+    val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
+    val final_bits = Cat(new_sign, magnitude)
+    sign_inject_result := final_bits.asSInt
+    sign_inject_result
+}
+
 
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
@@ -356,8 +373,9 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
 
      
     // ************  for testing ..will remove once passed 
-    //  val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
-     val computed_result = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
+     val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Mux(isSignInject,
+                                signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)))
+    //  val computed_result = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
 
      vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
     // *****************
