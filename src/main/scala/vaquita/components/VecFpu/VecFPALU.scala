@@ -28,37 +28,37 @@ val vs0_mask = io.vs0_in.asUInt()(config.vlen,0)      // convert into one array 
 val exception_reg = RegInit(0.U(5.W))
 
 
-//CONVERSION INSTRUCTIONS
-def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
-    val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
-    conv.io.signedIn := signed
-    conv.io.in := vs2_in.asUInt  
-    conv.io.roundingMode := 0.U
-    conv.io.detectTininess := consts.tininess_afterRounding
-    exception_reg := conv.io.exceptionFlags
-    fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
-}
+// //CONVERSION INSTRUCTIONS
+// def intToFloat(vs2_in: SInt, signed: Bool): SInt = {
+//     val conv = Module(new INToRecFN(32, FPConfig.expWidth, FPConfig.sigWidth))
+//     conv.io.signedIn := signed
+//     conv.io.in := vs2_in.asUInt  
+//     conv.io.roundingMode := 0.U
+//     conv.io.detectTininess := consts.tininess_afterRounding
+//     exception_reg := conv.io.exceptionFlags
+//     fNFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, conv.io.out.asSInt).asSInt
+// }
 
-def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
-    val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
-    val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
-    conv.io.in := recFN
-    conv.io.roundingMode := roundingMode 
-    conv.io.signedOut := signed
-    exception_reg := conv.io.intExceptionFlags
-    conv.io.out.asSInt
-}
+// def floatToInt(vs2_in: SInt, signed: Bool, roundingMode: UInt): SInt = {
+//     val recFN = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in)
+//     val conv = Module(new RecFNToIN(FPConfig.expWidth, FPConfig.sigWidth, 32))
+//     conv.io.in := recFN
+//     conv.io.roundingMode := roundingMode 
+//     conv.io.signedOut := signed
+//     exception_reg := conv.io.intExceptionFlags
+//     conv.io.out.asSInt
+// }
 
-def Conversion(vs2_in: SInt): SInt = {
-    MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
-        vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
-        vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
-        vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
-        vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
-        vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U), 
-        vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
-    ))
-}
+// def Conversion(vs2_in: SInt): SInt = {
+//     MuxLookup(io.alu_ctrl_con, vs2_in, Seq(
+//         vfcvt_f_xu_v     -> intToFloat(vs2_in, signed = false.B),
+//         vfcvt_f_x_v      -> intToFloat(vs2_in, signed = true.B),
+//         vfcvt_xu_f_v     -> floatToInt(vs2_in, signed = false.B, roundingMode = 0.U),
+//         vfcvt_x_f_v      -> floatToInt(vs2_in, signed = true.B, roundingMode = 0.U),
+//         vfcvt_rtz_xu_f_v -> floatToInt(vs2_in, signed = false.B, roundingMode = 1.U), 
+//         vfcvt_rtz_x_f_v  -> floatToInt(vs2_in, signed = true.B, roundingMode = 1.U)    
+//     ))
+// }
 
 
 //ARITHMETIC INSTRUCTIONS
@@ -238,101 +238,101 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt, mask_vs0: Bool): SInt = {
 
 
 //COMPARISON INSTRUCTIONS
-def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
-    val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
-    val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-    val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
-    cmp.io.a := rec_vs2
-    cmp.io.b := rec_vs1
+// def applyComparisonOp(vs1_in: SInt, vs2_in: SInt, opType: UInt): Bool = {
+//     val rec_vs1 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs1_in.asUInt)
+//     val rec_vs2 = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+//     val cmp = Module(new CompareRecFN(FPConfig.expWidth, FPConfig.sigWidth))
+//     cmp.io.a := rec_vs2
+//     cmp.io.b := rec_vs1
 
-    // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
-    // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
-    when (opType === vmfeq || opType === vmfne) {
-        cmp.io.signaling := false.B
-    }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
-        cmp.io.signaling := true.B
-    }.otherwise {
-        cmp.io.signaling := false.B
-    } 
+//     // Signaling: only vmfeq and vmfne raise invalid exception only on signaling NaN...not on quiet NaN's
+//     // Others (vmflt, vmfle, etc) raise exception on both signaling & quiet NaNs.
+//     when (opType === vmfeq || opType === vmfne) {
+//         cmp.io.signaling := false.B
+//     }.elsewhen (opType === vmflt || opType === vmfle || opType === vmfgt || opType === vmfge) {
+//         cmp.io.signaling := true.B
+//     }.otherwise {
+//         cmp.io.signaling := false.B
+//     } 
 
-    val result_comp = WireDefault(false.B)
-    val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, rec_vs2) 
-    val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, rec_vs1) 
-    val anyNaN = rawA.isNaN || rawB.isNaN
+//     val result_comp = WireDefault(false.B)
+//     val rawA = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, rec_vs2) 
+//     val rawB = rawFloatFromRecFN(FPConfig.expWidth, FPConfig.sigWidth, rec_vs1) 
+//     val anyNaN = rawA.isNaN || rawB.isNaN
 
-    switch(opType) {
-        is(vmfeq) { result_comp := Mux(anyNaN, false.B, cmp.io.eq) }
-        is(vmfne) { result_comp := anyNaN || !(cmp.io.eq && !anyNaN) }
-        is(vmflt) { result_comp := Mux(anyNaN, false.B, cmp.io.lt) }
-        is(vmfle) { result_comp := Mux(anyNaN, false.B, !(cmp.io.gt)) }
-        is(vmfgt) { result_comp := Mux(anyNaN, false.B, cmp.io.gt) }
-        is(vmfge) { result_comp := Mux(anyNaN, false.B, !(cmp.io.lt)) }
-    }
+//     switch(opType) {
+//         is(vmfeq) { result_comp := Mux(anyNaN, false.B, cmp.io.eq) }
+//         is(vmfne) { result_comp := anyNaN || !(cmp.io.eq && !anyNaN) }
+//         is(vmflt) { result_comp := Mux(anyNaN, false.B, cmp.io.lt) }
+//         is(vmfle) { result_comp := Mux(anyNaN, false.B, !(cmp.io.gt)) }
+//         is(vmfgt) { result_comp := Mux(anyNaN, false.B, cmp.io.gt) }
+//         is(vmfge) { result_comp := Mux(anyNaN, false.B, !(cmp.io.lt)) }
+//     }
 
-    exception_reg := cmp.io.exceptionFlags
-    result_comp
-}
+//     exception_reg := cmp.io.exceptionFlags
+//     result_comp
+// }
 
-def comparison_operators(vs1_in: SInt, vs2_in: SInt): Bool = {
-    MuxLookup(io.alu_ctrl, false.B, Seq(
-        vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
-        vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
-        vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
-        vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
-        vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
-        vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
-    ))
-}
+// def comparison_operators(vs1_in: SInt, vs2_in: SInt): Bool = {
+//     MuxLookup(io.alu_ctrl, false.B, Seq(
+//         vmfeq -> applyComparisonOp(vs1_in, vs2_in, vmfeq),
+//         vmfne -> applyComparisonOp(vs1_in, vs2_in, vmfne),
+//         vmflt -> applyComparisonOp(vs1_in, vs2_in, vmflt),
+//         vmfle -> applyComparisonOp(vs1_in, vs2_in, vmfle),
+//         vmfgt -> applyComparisonOp(vs1_in, vs2_in, vmfgt),
+//         vmfge -> applyComparisonOp(vs1_in, vs2_in, vmfge)
+//     ))
+// }
 	
-def main_comp(
-	vs1: Vec[Vec[SInt]],
-	vs2: Vec[Vec[SInt]],
-	vs3: Vec[Vec[SInt]],
-	mask: UInt,
-	rs1 : UInt,
-	vl : UInt,
-	mask_arith25 : Bool,
-	sew_lanes : Int,
-	sew : Int
-	): Vec[Vec[SInt]] = {
-	val result_val = WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(sew_lanes)(0.S(sew.W))))))
-	val vsetvli_mask = Wire(Bool())
-	vsetvli_mask := 0.B
-	val tail = Wire(Bool())
-	val comp_bool = WireInit(VecInit(Seq.fill(config.vlen)(false.B)))
-	val comp_wire = Wire(UInt(config.vlen.W))
-	comp_wire := comp_bool.asUInt
-	tail := 0.B
-	var elem_idx = 0
-	for (i <- 0 until 8) {
-	    for (j <- 0 until (sew_lanes)) {
+// def main_comp(
+// 	vs1: Vec[Vec[SInt]],
+// 	vs2: Vec[Vec[SInt]],
+// 	vs3: Vec[Vec[SInt]],
+// 	mask: UInt,
+// 	rs1 : UInt,
+// 	vl : UInt,
+// 	mask_arith25 : Bool,
+// 	sew_lanes : Int,
+// 	sew : Int
+// 	): Vec[Vec[SInt]] = {
+// 	val result_val = WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(sew_lanes)(0.S(sew.W))))))
+// 	val vsetvli_mask = Wire(Bool())
+// 	vsetvli_mask := 0.B
+// 	val tail = Wire(Bool())
+// 	// val comp_bool = WireInit(VecInit(Seq.fill(config.vlen)(false.B)))
+//     val comp_bool = WireInit(VecInit((0 until config.vlen).map(i => vs3(0).asUInt(i).asBool)))
+// 	val comp_wire = Wire(UInt(config.vlen.W))
+// 	comp_wire := comp_bool.asUInt
+// 	tail := 0.B
+// 	var elem_idx = 0
+// 	for (i <- 0 until 8) {
+// 	    for (j <- 0 until (sew_lanes)) {
 		
-		val mask_bit_active_element = (mask(elem_idx) === 1.B && mask_arith25 === 0.B) || mask_arith25 === 1.B
-		val mask_bit_undisturb = mask(elem_idx) === 0.B && mask_arith25 === 0.B && vsetvli_mask === 0.B
+// 		val mask_bit_active_element = (mask(elem_idx) === 1.B && mask_arith25 === 0.B) || mask_arith25 === 1.B
+// 		val mask_bit_undisturb = mask(elem_idx) === 0.B && mask_arith25 === 0.B && vsetvli_mask === 0.B
 
-        comp_bool(elem_idx) := Mux(
-		(vl > elem_idx.U),
-		Mux(mask_bit_active_element,comparison_operators(vs1(i)(j).asSInt, vs2(i)(j).asSInt), Mux(mask_bit_undisturb, (vs3(0).asUInt)(elem_idx).asBool, 1.B)),
-		Mux(tail === 0.B, (vs3(0).asUInt)(elem_idx).asBool, 1.B)
-		)
-		elem_idx = elem_idx +1
-	    }
-	}
-	var high = sew-1
-	var low  = 0
-	for (j <- 0 until sew_lanes) {
-	    result_val(0)(j) := comp_wire(high, low).asSInt
-	    high += sew
-	    low  += sew
-	}
-	for (i <- 1 until 8) {
-	    for (j <- 0 until sew_lanes) {
-		result_val(i)(j) := Mux(tail === 0.B, vs3(i)(j).asUInt, Fill(sew, 1.U)).asSInt //vs3(i)(j).asUInt
-	    }
-	}
-	result_val
-	}
-
+//         comp_bool(elem_idx) := Mux(
+// 		(vl > elem_idx.U),
+// 		Mux(mask_bit_active_element,comparison_operators(vs1(i)(j).asSInt, vs2(i)(j).asSInt), Mux(mask_bit_undisturb, (vs3(0).asUInt)(elem_idx).asBool, 1.B)),
+// 		Mux(tail === 0.B, (vs3(0).asUInt)(elem_idx).asBool, 1.B)
+// 		)
+// 		elem_idx = elem_idx +1
+// 	    }
+// 	}
+// 	var high = sew-1
+// 	var low  = 0
+// 	for (j <- 0 until sew_lanes) {
+// 	    result_val(0)(j) := comp_wire(high, low).asSInt
+// 	    high += sew
+// 	    low  += sew
+// 	}
+// 	for (i <- 1 until 8) {
+// 	    for (j <- 0 until sew_lanes) {
+// 		result_val(i)(j) := Mux(tail === 0.B, vs3(i)(j).asUInt, Fill(sew, 1.U)).asSInt //vs3(i)(j).asUInt
+// 	    }
+// 	}
+// 	result_val
+// 	}
 
 
 
@@ -356,8 +356,8 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
 
      
     // ************  for testing ..will remove once passed 
-     val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
-    //  val computed_result = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
+    //  val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
+     val computed_result = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
 
      vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
     // *****************
@@ -454,7 +454,19 @@ when(io.sew==="b010".U){ // sew = 32
 
 
     }.otherwise{     //comp_bit === 1.B           
-        io.vsd_out := main_comp(io.vs1_in, io.vs2_in,io.vs3_in,vs0_mask,io.rs1_in,io.vl_in,io.mask_arith,config.count_lanes,32)
+        // io.vsd_out := main_comp(io.vs1_in, io.vs2_in,io.vs3_in,vs0_mask,io.rs1_in,io.vl_in,io.mask_arith,config.count_lanes,32)
+
+        //once passed.... then removed ************
+        var vl_counter = 1
+        for (i <- 0 until 8) {
+        for (j <- 0 until config.count_lanes) {
+            val idx = (i * config.count_lanes) + j
+            val mask = vs0_mask(idx)
+            io.vsd_out(i)(j) :=0.S 
+            vl_counter = vl_counter + 1
+        }
+        }
+        // ***************
     } 
             
         
