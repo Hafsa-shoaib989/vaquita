@@ -353,6 +353,17 @@ def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
 }
 
 
+// CLASSIFY INSTRUCTIONS
+def ArithmeticUnary(vs2_in: SInt): SInt = {
+    val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+    val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+    recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
+    recOut
+}
+
+
+
 // for sew's
 def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
     val vsetvli_mask = 0.B
@@ -362,7 +373,7 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
     val vec_sew32_result = WireInit(0.S(config.XLEN.W))
 
     val isConversionOp = io.alu_ctrl_con === vfcvt_f_xu_v || io.alu_ctrl_con === vfcvt_f_x_v || io.alu_ctrl_con === vfcvt_xu_f_v || io.alu_ctrl_con === vfcvt_x_f_v || io.alu_ctrl_con === vfcvt_rtz_xu_f_v || io.alu_ctrl_con === vfcvt_rtz_x_f_v
-    val isUnaryArithmeticOp = io.alu_ctrl_con === vfsqrt || io.alu_ctrl_con === vfclass
+    val isUnaryArithmeticOp = io.alu_ctrl_con === vfclass
     val isSignInject = io.alu_ctrl === vfsgnj || io.alu_ctrl === vfsgnjn || io.alu_ctrl === vfsgnjx
     
     // Vfmerge/Vfmv instruction
@@ -373,9 +384,11 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
 
      
     // ************  for testing ..will remove once passed 
-     val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Mux(isSignInject,
-                                signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)))
-    //  val computed_result = Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0)
+     val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Mux(isUnaryArithmeticOp,
+                                ArithmeticUnary(vs2.asSInt), Mux(isSignInject,
+                                signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))))
+    
+    // val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
 
      vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
     // *****************
@@ -418,6 +431,22 @@ when(io.sew==="b010".U){ // sew = 32
             vl_counter = vl_counter + 1
         }
     }
+
+
+    // //************FOR OPTIMIZATION ..REMOVING MULTIPLY
+    // when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && !div_bit && !sqrt_bit) {            //Arithmetic instructions
+    //     var vl_counter = 0  //***************
+    //     for (i <- 0 until 8) {
+    //         for (j <- 0 until config.count_lanes) {
+    //         // val idx = (i * config.count_lanes) + j
+    //         // val mask = vs0_mask(idx)
+    //         io.vsd_out(i)(j) := Mux(io.vl_in > vl_counter.U, //*********** = hataya                         
+    //             sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), vs0_mask(vl_counter)), //**********  
+    //             Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+    //         )     
+    //         vl_counter = vl_counter + 1
+    //     }
+    // }
 
     // }.elsewhen (!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && (div_bit || sqrt_bit)) {     //Div/Sqrt instructions
     //     var vl_counter = 0

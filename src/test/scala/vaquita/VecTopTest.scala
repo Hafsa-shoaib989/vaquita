@@ -7,9 +7,9 @@ import vaquita.configparameter.VaquitaConfig
 
 class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
   "vec top test" in {
-    implicit val config = new VaquitaConfig (32,32,32,1,true)
+    // implicit val config = new VaquitaConfig (32,32,32,1,true)
     // // FOR INTEGRATING WITH NRV ..
-    // implicit val config = new VaquitaConfig (256,32,32,8,true)
+    implicit val config = new VaquitaConfig (256,32,32,8,true)
 
     test(new VaquitaTop) { dut =>
       // my normal test cases 

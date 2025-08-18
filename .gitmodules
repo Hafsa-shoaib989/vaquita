@@ -1,5 +1,5 @@
 # // // FOR INTEGRATING WITH NRV ..(means nothing)
-[submodule "berkeley-hardfloat"]
-	path = berkeley-hardfloat
-	url = https://github.com/ucb-bar/berkeley-hardfloat.git
+# [submodule "berkeley-hardfloat"]
+# 	path = berkeley-hardfloat
+# 	url = https://github.com/ucb-bar/berkeley-hardfloat.git
 

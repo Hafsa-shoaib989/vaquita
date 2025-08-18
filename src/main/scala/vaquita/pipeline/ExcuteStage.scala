@@ -65,16 +65,16 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     for (i <- 0 to 7) { // for grouping = 8
         for (j <- 0 until (config.count_lanes)) {
           when (config.F.B && fpu_sig) {
-              vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew,RegNext(io.hazard_rs1.asSInt)),io.ex_vs1_data_in(i)(j))
+              // vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew,RegNext(io.hazard_rs1.asSInt)),io.ex_vs1_data_in(i)(j))
               // // FOR INTEGRATING WITH NRV ....
-              // vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt),io.ex_vs1_data_in(i)(j))
+              vec_fp_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6,0)==="b1010111".U && io.ex_instr_out(14,12)==="b101".U,sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt),io.ex_vs1_data_in(i)(j))
                            
               vec_alu_module.io.vs1_in(i)(j) := 0.S
               
           }.otherwise {
-              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, RegNext(io.hazard_rs1.asSInt)), io.ex_vs1_data_in(i)(j)) 
+              // vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, RegNext(io.hazard_rs1.asSInt)), io.ex_vs1_data_in(i)(j)) 
               // // FOR INTEGRATING WITH NRV ....
-              // vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j)) 
+              vec_alu_module.io.vs1_in(i)(j) := Mux(io.ex_instr_out(6, 0) === "b1010111".U && io.ex_instr_out(14, 12) === "b100".U, sew_selector.sew_selector_with_element(next_sew, io.hazard_rs1.asSInt), io.ex_vs1_data_in(i)(j)) 
                            
               vec_fp_alu_module.io.vs1_in(i)(j) := 0.S
           }
@@ -110,9 +110,9 @@ class ExcuteStage(implicit val config: VaquitaConfig) extends Module {
     vsetvli_module.io.instr_in   := RegNext(io.ex_instr_in)
     io.ex_lmul_out               := RegNext(io.ex_lmul_in)
     
-    vsetvli_module.io.rs1_in     := RegNext(io.hazard_rs1)
+    // vsetvli_module.io.rs1_in     := RegNext(io.hazard_rs1)
     // // FOR INTEGRATING WITH NRV ....
-    // vsetvli_module.io.rs1_in     := io.hazard_rs1
+    vsetvli_module.io.rs1_in     := io.hazard_rs1
 
     io.vl_rs1_out                := vsetvli_module.io.vl
 
