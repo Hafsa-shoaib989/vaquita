@@ -7,9 +7,9 @@ import vaquita.configparameter.VaquitaConfig
 
 class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
   "vec top test" in {
-    // implicit val config = new VaquitaConfig (32,32,32,1,true)
+    implicit val config = new VaquitaConfig (32,32,32,1,true)
     // // FOR INTEGRATING WITH NRV ..
-    implicit val config = new VaquitaConfig (256,32,32,8,true)
+    // implicit val config = new VaquitaConfig (256,32,32,8,true)
 
     test(new VaquitaTop) { dut =>
       // my normal test cases 
@@ -87,17 +87,8 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
 
 
 
-      // sign injection
-      dut.io.instr.poke("x22c71957".U)
-      dut.io.rs1_data.poke(0.S)
-      dut.io.hazard_rs1_data_in.poke(0.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x23255a57".U)
+      // vfmerge_vfmove
+      dut.io.instr.poke("x5d055957".U)
       dut.io.rs1_data.poke(0x40400000.S)
       dut.io.hazard_rs1_data_in.poke(0x40400000.U)
       // dut.io.vl_rs1_out.expect(5.U)    
@@ -106,16 +97,7 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x27481b57".U)
-      dut.io.rs1_data.poke(0.S)
-      dut.io.hazard_rs1_data_in.poke(0.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 13 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x27655c57".U)
+      dut.io.instr.poke("x5e055a57".U)
       dut.io.rs1_data.poke(0x40400000.S)
       dut.io.hazard_rs1_data_in.poke(0x40400000.U)
       // dut.io.vl_rs1_out.expect(5.U)    
@@ -124,24 +106,14 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 14 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x2aec1d57".U)
-      dut.io.rs1_data.poke(0.S)
-      dut.io.hazard_rs1_data_in.poke(0.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 15 completed, instr: ${dut.io.instr.peek()}")
-
-      dut.io.instr.poke("x2ba55e57".U)
-      dut.io.rs1_data.poke(0x40400000.S)
-      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
-      // dut.io.vl_rs1_out.expect(5.U)    
-      dut.io.dmemReq.ready.poke(true.B)
-      dut.io.dmemRsp.valid.poke(true.B)
-      dut.clock.step(1)
-      println(s"Cycle 16 completed, instr: ${dut.io.instr.peek()}")
-
+      // dut.io.instr.poke("x5d055957".U)
+      // dut.io.rs1_data.poke(0.S)
+      // dut.io.hazard_rs1_data_in.poke(0.U)
+      // // dut.io.vl_rs1_out.expect(5.U)    
+      // dut.io.dmemReq.ready.poke(true.B)
+      // dut.io.dmemRsp.valid.poke(true.B)
+      // dut.clock.step(1)
+      // println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
 
 
       dut.clock.step(50)

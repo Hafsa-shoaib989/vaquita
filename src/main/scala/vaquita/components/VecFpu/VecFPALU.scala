@@ -21,6 +21,7 @@ class VecFPALU(implicit val config: VaquitaConfig, val FPConfig: VecFPParameters
         val mask_arith   = Input(Bool())             // want to apply masking or not?
         val vsd_out      = Output(Vec(8, Vec(config.count_lanes, SInt(config.XLEN.W))))
         val valid_dive   = Output(Bool())
+        val vs2_is_v0    = Input(Bool())
         // val exceptions   = Output(UInt(5.W))
     }) 
 
@@ -335,31 +336,37 @@ def Arithmetic(vs1_in: SInt, vs2_in: SInt, vsd: SInt, mask_vs0: Bool): SInt = {
 // 	}
 
 
-//SIGN INJECTION INSTRUCTIONS
-def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
-    val sign_inject_result = WireDefault(vs2_in)
-    val sign_vs1 = vs1_in.asUInt()(31)
-    val sign_vs2 = vs2_in.asUInt()(31)
+// //SIGN INJECTION INSTRUCTIONS
+// def signInject(vs1_in: SInt, vs2_in: SInt): SInt = {
+//     val sign_inject_result = WireDefault(vs2_in)
+//     val sign_vs1 = vs1_in.asUInt()(31)
+//     val sign_vs2 = vs2_in.asUInt()(31)
 
-    val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
-        vfsgnj  -> sign_vs1,
-        vfsgnjn -> ~sign_vs1,
-        vfsgnjx -> (sign_vs1 ^ sign_vs2)
-    ))
-    val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
-    val final_bits = Cat(new_sign, magnitude)
-    sign_inject_result := final_bits.asSInt
-    sign_inject_result
-}
+//     val new_sign = MuxLookup(io.alu_ctrl, sign_vs1, Seq(
+//         vfsgnj  -> sign_vs1,
+//         vfsgnjn -> ~sign_vs1,
+//         vfsgnjx -> (sign_vs1 ^ sign_vs2)
+//     ))
+//     val magnitude = vs2_in.asUInt()(30, 0)  // remove sign bit
+//     val final_bits = Cat(new_sign, magnitude)
+//     sign_inject_result := final_bits.asSInt
+//     sign_inject_result
+// }
 
 
-// CLASSIFY INSTRUCTIONS
-def ArithmeticUnary(vs2_in: SInt): SInt = {
-    val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
-    val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
-    val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
-    recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
-    recOut
+// // CLASSIFY INSTRUCTIONS
+// def ArithmeticUnary(vs2_in: SInt): SInt = {
+//     val recOut = WireDefault(0.S((FPConfig.expWidth + FPConfig.sigWidth + 1).W))
+//     val recA = recFNFromFN(FPConfig.expWidth, FPConfig.sigWidth, vs2_in.asUInt)
+//     val classify = classifyRecFN(FPConfig.expWidth, FPConfig.sigWidth, recA)
+//     recOut := Cat(0.U((config.XLEN - 10).W), classify.asUInt).asSInt
+//     recOut
+// }
+
+
+//MOVE & MERGE INSTRUCTIONS
+def vfmerge_vfm_or_vfmv_vf(is_vfmv: Bool, vs1: SInt, vs2: SInt, mask_vs0: Bool): SInt = {
+    Mux(is_vfmv, vs1, Mux(mask_vs0, vs1, vs2))      // vfmv.v.f: always scalar; vfmerge.vfm: mask decides
 }
 
 
@@ -378,19 +385,22 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
     
     // Vfmerge/Vfmv instruction
     val isVfmergeOrVfmv = io.alu_ctrl === vfmv_vfmerge
-    val vs2_is_v0 = vs2 === 0.S
-    val isVfmv = isVfmergeOrVfmv && io.mask_arith && vs2_is_v0
+    // val vs2_is_v0 = vs2 === 0.S
+    val isVfmv = isVfmergeOrVfmv && io.mask_arith && io.vs2_is_v0
     val isVfmerge = isVfmergeOrVfmv && !io.mask_arith 
 
      
     // ************  for testing ..will remove once passed 
-     val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Mux(isUnaryArithmeticOp,
-                                ArithmeticUnary(vs2.asSInt), Mux(isSignInject,
-                                signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))))
-    
-    // val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
+    //  val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Mux(isUnaryArithmeticOp,
+    //                             ArithmeticUnary(vs2.asSInt), Mux(isSignInject,
+    //                             signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))))
+    when(isVfmergeOrVfmv && (isVfmv || isVfmerge)) {
+        vec_sew32_b := vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0)
+    }.otherwise {
+        val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
 
-     vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+        vec_sew32_b := Mux(mask_bit_active_element===1.B,computed_result,Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
+    }
     // *****************
 
     vec_sew32_result := vec_sew32_b
@@ -433,7 +443,7 @@ when(io.sew==="b010".U){ // sew = 32
     }
 
 
-    // //************FOR OPTIMIZATION ..REMOVING MULTIPLY
+    // //************FOR OPTIMIZATION ..REMOVING MULTIPLY **************************
     // when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && !div_bit && !sqrt_bit) {            //Arithmetic instructions
     //     var vl_counter = 0  //***************
     //     for (i <- 0 until 8) {
@@ -447,6 +457,8 @@ when(io.sew==="b010".U){ // sew = 32
     //         vl_counter = vl_counter + 1
     //     }
     // }
+
+
 
     // }.elsewhen (!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && (div_bit || sqrt_bit)) {     //Div/Sqrt instructions
     //     var vl_counter = 0
