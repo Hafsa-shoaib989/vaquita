@@ -396,6 +396,7 @@ def sew_arit_32(vs1:SInt , vs2:SInt,vs3:SInt,mask_vs0:Bool): SInt ={
     //                             signInject(vs1.asSInt, vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))))
     when(isVfmergeOrVfmv && (isVfmv || isVfmerge)) {
         vec_sew32_b := vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0)
+        // vec_sew32_b := Mux(mask_bit_active_element===1.B, vfmerge_vfm_or_vfmv_vf(isVfmv, vs1, vs2, mask_vs0), Mux(mask_bit_undisturb===1.B,vs3,Fill(32,1.U).asSInt)).asSInt
     }.otherwise {
         val computed_result = Mux(isConversionOp, Conversion(vs2.asSInt), Arithmetic(vs1.asSInt, vs2.asSInt, vs3.asSInt, mask_vs0))
 
@@ -434,6 +435,7 @@ when(io.sew==="b010".U){ // sew = 32
             for (j <- 0 until config.count_lanes) {
             val idx = (i * config.count_lanes) + j
             val mask = vs0_mask(idx)
+                                    //i.U < io.vl_in .......... io.vl_in >= vl_counter.U
             io.vsd_out(i)(j) := Mux(io.vl_in >= vl_counter.U,                          
                 sew_arit_32( io.vs1_in(i)(j), io.vs2_in(i)(j), io.vs3_in(i)(j), mask),   
                 Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
@@ -460,7 +462,7 @@ when(io.sew==="b010".U){ // sew = 32
 
 
 
-    // }.elsewhen (!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit && (div_bit || sqrt_bit)) {     //Div/Sqrt instructions
+    // }.elsewhen ((div_bit || sqrt_bit) && !reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {     //Div/Sqrt instructions
     //     var vl_counter = 0
     //     val values = RegInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S(config.XLEN.W))))))
     //     val div_result = WireInit(VecInit(Seq.fill(8)(VecInit(Seq.fill(config.count_lanes)(0.S((config.XLEN + 1).W))))))
@@ -510,6 +512,49 @@ when(io.sew==="b010".U){ // sew = 32
     //             }
     //         }
     //     }  
+
+
+    }.elsewhen (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit && !div_bit && !sqrt_bit) {                //scalar move instructions
+        for (i <- 0 until 8) {
+            for (j <- 0 until config.count_lanes) {
+                if (i == 0 && j == 0) {
+                    when (sm_f_s === 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+                        io.vsd_out(0)(0) := io.vs2_in(0)(0)
+                    }.elsewhen (sm_s_f === 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+                        io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+                    }.otherwise {
+                        io.vsd_out(0)(0) := 0.S
+                    }
+                }else {
+                    when (sm_f_s === 1.B) {
+                        io.vsd_out(i)(j) := 0.S 
+                    }.elsewhen (sm_s_f === 1.B) {
+                        io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                    }.otherwise {
+                        io.vsd_out(i)(j) := 0.S 
+                    }
+                }
+            }
+        }
+
+
+
+
+                // if (i == 0 && j == 0) {
+                //     if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+                //         io.vsd_out(0)(0) := io.vs2_in(0)(0)
+                //     } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+                //         io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+                //     }
+                // }else {
+                //     if (sm_f_s == 1.B) {
+                //         io.vsd_out(i)(j) := 0.S 
+                //     } else if (sm_s_f == 1.B) {
+                //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+                //     }
+                // }
+
+
 
 
     }.otherwise{     //comp_bit === 1.B           

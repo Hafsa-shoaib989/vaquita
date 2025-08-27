@@ -87,8 +87,8 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
 
 
 
-      // vfmerge_vfmove
-      dut.io.instr.poke("x5d055957".U)
+      // vfmv scalar move 
+      dut.io.instr.poke("x42055957".U)
       dut.io.rs1_data.poke(0x40400000.S)
       dut.io.hazard_rs1_data_in.poke(0x40400000.U)
       // dut.io.vl_rs1_out.expect(5.U)    
@@ -97,23 +97,14 @@ class VecTopTest extends AnyFreeSpec with ChiselScalatestTester {
       dut.clock.step(1)
       println(s"Cycle 12 completed, instr: ${dut.io.instr.peek()}")
 
-      dut.io.instr.poke("x5e055a57".U)
-      dut.io.rs1_data.poke(0x40400000.S)
-      dut.io.hazard_rs1_data_in.poke(0x40400000.U)
+      dut.io.instr.poke("x430010d7".U)
+      dut.io.rs1_data.poke(0.S)
+      dut.io.hazard_rs1_data_in.poke(0.U)
       // dut.io.vl_rs1_out.expect(5.U)    
       dut.io.dmemReq.ready.poke(true.B)
       dut.io.dmemRsp.valid.poke(true.B)
       dut.clock.step(1)
-      println(s"Cycle 14 completed, instr: ${dut.io.instr.peek()}")
-
-      // dut.io.instr.poke("x5d055957".U)
-      // dut.io.rs1_data.poke(0.S)
-      // dut.io.hazard_rs1_data_in.poke(0.U)
-      // // dut.io.vl_rs1_out.expect(5.U)    
-      // dut.io.dmemReq.ready.poke(true.B)
-      // dut.io.dmemRsp.valid.poke(true.B)
-      // dut.clock.step(1)
-      // println(s"Cycle 11 completed, instr: ${dut.io.instr.peek()}")
+      println(s"Cycle 13 completed, instr: ${dut.io.instr.peek()}")
 
 
       dut.clock.step(50)

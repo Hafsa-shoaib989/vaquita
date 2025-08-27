@@ -542,65 +542,65 @@
 // // }
 
 // when(io.sew==="b010".U){ // sew = 32   
-//     // when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
-//     //     for (i <- 0 until 8) {
-//     //         for (j <- 0 until config.count_lanes) {
-//     //             if (i == 0 && j == 0) {
-//     //                 if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
-//     //                     io.vsd_out(0)(0) := io.vs2_in(0)(0)
-//     //                 } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
-//     //                     io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-//     //                 }
-//     //             }else {
-//     //                 if (sm_f_s == 1.B) {
-//     //                     io.vsd_out(i)(j) := 0.S 
-//     //                 } else if (sm_s_f == 1.B) {
-//     //                     io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//     //                 }
-//     //             }
-//     //     }   }
+//     when (scalar_move_bit && !reduc_bit && !reduc_op_bit && !comp_bit) {                //scalar move instructions
+//         for (i <- 0 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//                 if (i == 0 && j == 0) {
+//                     if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
+//                         io.vsd_out(0)(0) := io.vs2_in(0)(0)
+//                     } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
+//                         io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
+//                     }
+//                 }else {
+//                     if (sm_f_s == 1.B) {
+//                         io.vsd_out(i)(j) := 0.S 
+//                     } else if (sm_s_f == 1.B) {
+//                         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//                     }
+//                 }
+//             }
+//         }   
 
-//     // }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
-//     //     //vfredosum
-//     //     var sum = io.vs1_in(0)(0).asSInt
-//     //     var element_count = 0
-//     //     val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
+//     }.elsewhen(reduc_bit && reduc_op_bit && !comp_bit && !scalar_move_bit) {    //reduction instructions
+//         //vfredosum
+//         var sum = io.vs1_in(0)(0).asSInt
+//         var element_count = 0
+//         val active_vec = Wire(Vec(8 * config.count_lanes, Bool()))
         
-//     //     //vfredusum
-//     //     val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
-//     //     for (i <- 0 until (8 * config.count_lanes)) {
-//     //         temp_elements(i) := 0.S
-//     //     }
-//     //     var temp_idx = 0
-//     //     for (i <- 0 until 8) {
-//     //         for (j <- 0 until config.count_lanes) {
-//     //             val idx = i * config.count_lanes + j
-//     //             val mask = vs0_mask(idx)
-//     //             val inRange = io.vl_in > element_count.U
-//     //             val active = inRange && (io.mask_arith || mask.asBool)
-//     //             active_vec(idx) := active 
-//     //             if (active == 1.B) {
-//     //                 if (reduc_usum_bit == 1.B) {
-//     //                     temp_elements(temp_idx) := io.vs2_in(i)(j)
-//     //                     temp_idx += 1
-//     //                 } else if (reduc_osum_bit == 1.B) {
-//     //                     sum = reduction_add(sum, io.vs2_in(i)(j))
-//     //                 } else if (reduc_bit == 1.B) {
-//     //                     sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
-//     //                 }
-//     //             }   
-//     //             if (!(i == 0 && j == 0)) {
-//     //                 io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-//     //             }
-//     //             element_count = element_count + 1
-//     //         }
-//     //     }
-//     //     val found_active = active_vec.reduce(_ || _) 
-//     //     val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
-//     //     io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
+//         //vfredusum
+//         val temp_elements = Wire(Vec(8 * config.count_lanes, SInt(config.XLEN.W)))
+//         for (i <- 0 until (8 * config.count_lanes)) {
+//             temp_elements(i) := 0.S
+//         }
+//         var temp_idx = 0
+//         for (i <- 0 until 8) {
+//             for (j <- 0 until config.count_lanes) {
+//                 val idx = i * config.count_lanes + j
+//                 val mask = vs0_mask(idx)
+//                 val inRange = io.vl_in > element_count.U
+//                 val active = inRange && (io.mask_arith || mask.asBool)
+//                 active_vec(idx) := active 
+//                 if (active == 1.B) {
+//                     if (reduc_usum_bit == 1.B) {
+//                         temp_elements(temp_idx) := io.vs2_in(i)(j)
+//                         temp_idx += 1
+//                     } else if (reduc_osum_bit == 1.B) {
+//                         sum = reduction_add(sum, io.vs2_in(i)(j))
+//                     } else if (reduc_bit == 1.B) {
+//                         sum = fp_maxmin_reduc(sum, io.vs2_in(i)(j))
+//                     }
+//                 }   
+//                 if (!(i == 0 && j == 0)) {
+//                     io.vsd_out(i)(j) := Mux(inRange, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
+//                 }
+//                 element_count = element_count + 1
+//             }
+//         }
+//         val found_active = active_vec.reduce(_ || _) 
+//         val reduction_result = Mux(reduc_usum_bit, tree_reduce(temp_elements, temp_idx), sum)
+//         io.vsd_out(0)(0) := Mux(found_active, reduction_result, io.vs1_in(0)(0))
 
-//     // }.else
-//     when(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
+//     }.elsewhen(!reduc_bit && !reduc_op_bit && !comp_bit && !scalar_move_bit) {    //Arithmetic instructions
 //         var vl_counter = 1
 //         for (i <- 0 until 8) {
 //             for (j <- 0 until config.count_lanes) {
