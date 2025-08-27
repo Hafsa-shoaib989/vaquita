@@ -538,25 +538,6 @@ when(io.sew==="b010".U){ // sew = 32
         }
 
 
-
-
-                // if (i == 0 && j == 0) {
-                //     if (sm_f_s == 1.B) {                 // vfmv.f.s rd, vs2, Always copies element 0, even if vl=0 or vstart>=vl
-                //         io.vsd_out(0)(0) := io.vs2_in(0)(0)
-                //     } else if (sm_s_f == 1.B) {          // vfmv.s.f vd, rs1, Only update element 0 if vstart < vl and vl > 0, (If vstart >= vl or vl == 0, do nothing)
-                //         io.vsd_out(0)(0) := Mux(io.vl_in > 0.U, io.vs1_in(0)(0), Mux(tail === 0.B, io.vs3_in(0)(0), Fill(32, 1.U).asSInt))
-                //     }
-                // }else {
-                //     if (sm_f_s == 1.B) {
-                //         io.vsd_out(i)(j) := 0.S 
-                //     } else if (sm_s_f == 1.B) {
-                //         io.vsd_out(i)(j) := Mux(tail === 0.B, io.vs3_in(i)(j), Fill(32, 1.U).asSInt)
-                //     }
-                // }
-
-
-
-
     }.otherwise{     //comp_bit === 1.B           
         // io.vsd_out := main_comp(io.vs1_in, io.vs2_in,io.vs3_in,vs0_mask,io.rs1_in,io.vl_in,io.mask_arith,config.count_lanes,32)
 
